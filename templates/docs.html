@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API Docs — Perion Auth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --text: #eef2f7;
+    --text-dim: rgba(238,242,247,0.65);
+    --accent: #6ea8ff;
+    --green: #34c759;
+    --warm: rgba(255,224,160,0.9);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', system-ui, sans-serif; }
+  body{
+    background-color:#141c2b;
+    background-image:
+      linear-gradient(335deg, rgba(255,255,255,0.045) 23px, transparent 23px),
+      linear-gradient(155deg, rgba(255,255,255,0.045) 23px, transparent 23px),
+      linear-gradient(335deg, rgba(0,0,0,0.35) 26px, transparent 26px),
+      linear-gradient(155deg, rgba(0,0,0,0.35) 26px, transparent 26px);
+    background-size:58px 58px;
+    color:var(--text);
+    padding:40px 20px 80px;
+    line-height:1.7;
+  }
+  .page{ max-width:760px; margin:0 auto; }
+  h1{ font-size:30px; margin-bottom:8px; }
+  .subtitle{ color:var(--text-dim); margin-bottom:32px; }
+  h2{ font-size:20px; margin:36px 0 12px; color:var(--accent); }
+  h3{ font-size:16px; margin:22px 0 8px; }
+  p{ color:var(--text-dim); margin-bottom:12px; }
+  code{
+    font-family:'Courier New', monospace;
+    background:rgba(0,0,0,0.35); padding:2px 7px; border-radius:5px;
+    font-size:13px; color:var(--warm);
+  }
+  pre{
+    background:rgba(0,0,0,0.5); padding:18px; border-radius:12px;
+    overflow-x:auto; margin:12px 0 20px; font-size:13px;
+    border:1px solid rgba(255,255,255,0.08);
+    font-family:'Courier New', monospace; color:#d4e4ff;
+  }
+  .method{
+    display:inline-block; font-weight:700; font-size:11.5px;
+    padding:3px 9px; border-radius:5px; margin-right:8px;
+    font-family:'Courier New', monospace;
+  }
+  .get{ background:rgba(52,199,89,0.2); color:#7ddba3; }
+  .post{ background:rgba(110,168,255,0.2); color:#9fc4ff; }
+  .endpoint{
+    background:rgba(255,255,255,0.05); padding:14px 16px;
+    border-radius:10px; margin:8px 0 16px;
+    font-family:'Courier New', monospace; font-size:13.5px;
+  }
+  a{ color:var(--accent); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  .warning{
+    background:rgba(255,224,160,0.08); border:1px solid rgba(255,224,160,0.3);
+    padding:14px 18px; border-radius:10px; color:var(--warm);
+    font-size:13.5px; margin:20px 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Perion Auth API</h1>
+  <p class="subtitle">Add password + TOTP two-factor authentication to your app in minutes.</p>
+
+  <h2>Base URL</h2>
+  <pre>https://perion-auth.onrender.com/api/v1</pre>
+
+  <h2>Authentication</h2>
+  <p>Every request must include your API key in the <code>X-API-Key</code> header.</p>
+  <pre>X-API-Key: per_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</pre>
+
+  <div class="warning">
+    ⚠️ Never expose your API key in client-side code. Only call the API from your backend server.
+  </div>
+
+  <h2>Endpoints</h2>
+
+  <h3><span class="method get">GET</span>/health</h3>
+  <div class="endpoint">GET /api/v1/health</div>
+  <p>Check that the service is running. No API key required.</p>
+  <pre>{
+  "status": "ok",
+  "service": "Perion Auth",
+  "version": "1.0"
+}</pre>
+
+  <h3><span class="method post">POST</span>/signup</h3>
+  <div class="endpoint">POST /api/v1/signup</div>
+  <p>Create a new user account. Returns a QR code the user scans with Google Authenticator.</p>
+  <pre>{
+  "email": "user@example.com",
+  "password": "minimum8chars",
+  "name": "John Doe"
+}</pre>
+  <p>Response:</p>
+  <pre>{
+  "success": true,
+  "user_id": 42,
+  "email": "user@example.com",
+  "qr_code": "data:image/png;base64,...",
+  "uri": "otpauth://totp/...",
+  "secret": "JBSWY3DPEHPK3PXP",
+  "backup_codes": ["12345678", ...]
+}</pre>
+
+  <h3><span class="method post">POST</span>/login</h3>
+  <div class="endpoint">POST /api/v1/login</div>
+  <p>Step 1 of login. Verify email + password.</p>
+  <pre>{
+  "email": "user@example.com",
+  "password": "theirpassword"
+}</pre>
+  <p>If 2FA is enabled, you get back:</p>
+  <pre>{
+  "success": true,
+  "totp_required": true,
+  "user_id": 42,
+  "message": "Call /api/v1/verify with the 6-digit code"
+}</pre>
+
+  <h3><span class="method post">POST</span>/verify</h3>
+  <div class="endpoint">POST /api/v1/verify</div>
+  <p>Step 2 of login. Verify the 6-digit TOTP code (or a backup code).</p>
+  <pre>{
+  "email": "user@example.com",
+  "code": "482913"
+}</pre>
+  <p>Response:</p>
+  <pre>{
+  "success": true,
+  "session_token": "abc123...",
+  "user_id": 42
+}</pre>
+
+  <h3><span class="method get">GET</span>/me</h3>
+  <div class="endpoint">GET /api/v1/me</div>
+  <p>Get info about the currently signed-in user.</p>
+  <pre>Authorization: Bearer &lt;session_token&gt;</pre>
+
+  <h3><span class="method post">POST</span>/logout</h3>
+  <div class="endpoint">POST /api/v1/logout</div>
+  <p>Invalidate a session token.</p>
+  <pre>Authorization: Bearer &lt;session_token&gt;</pre>
+
+  <h2>Quick Start (JavaScript)</h2>
+  <pre>const API = 'https://perion-auth.onrender.com/api/v1';
+const KEY = 'per_live_your_key_here';
+
+async function signup(email, password, name){
+  const res = await fetch(`${API}/signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': KEY
+    },
+    body: JSON.stringify({ email, password, name })
+  });
+  return res.json();
+}</pre>
+
+  <h2>Quick Start (Python)</h2>
+  <pre>import requests
+
+API = "https://perion-auth.onrender.com/api/v1"
+KEY = "per_live_your_key_here"
+
+def signup(email, password, name):
+    r = requests.post(f"{API}/signup", 
+        headers={"X-API-Key": KEY},
+        json={"email": email, "password": password, "name": name})
+    return r.json()</pre>
+
+</div>
+</body>
+</html>

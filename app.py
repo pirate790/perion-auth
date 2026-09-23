@@ -1,10 +1,11 @@
 import os
 import base64
 import io
+import string
 import secrets
 from functools import wraps
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response
+from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response, g
 import bcrypt
 import qrcode
 from db import get_db, init_db, execute_query
@@ -14,6 +15,23 @@ from crypto_utils import (
 )
 
 app = Flask(__name__)
+
+# ============================================================
+# CORS — allows other apps to call the public API
+# ============================================================
+@app.after_request
+def add_cors_headers(response):
+    if request.path.startswith("/api/v1/"):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
+@app.route("/api/v1/<path:path>", methods=["OPTIONS"])
+def cors_preflight(path):
+    return ("", 204)
+
 
 # ============================================================
 # CONFIG
@@ -92,7 +110,6 @@ def create_session(user_id):
 
 
 def get_session(token, touch=True):
-    """Return session dict if valid and not timed out, else None."""
     if not token:
         return None
 
@@ -109,14 +126,12 @@ def get_session(token, touch=True):
     expires_at = _parse(row["expires_at"])
     last_active = _parse(row["last_active"]) if row.get("last_active") else expires_at
 
-    # Absolute expiry
     if expires_at and now > expires_at:
         execute_query(c, "DELETE FROM sessions WHERE token = %s", (token,))
         conn.commit()
         conn.close()
         return None
 
-    # Idle timeout
     if last_active and (now - last_active).total_seconds() > SESSION_TIMEOUT_MINUTES * 60:
         execute_query(c, "DELETE FROM sessions WHERE token = %s", (token,))
         conn.commit()
@@ -137,7 +152,6 @@ def get_session_token():
 
 
 def login_required_html(view):
-    """Decorator for HTML pages — redirects to / if not logged in."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         token = get_session_token()
@@ -149,7 +163,6 @@ def login_required_html(view):
 
 
 def login_required_api(view):
-    """Decorator for JSON APIs — returns 401 if not logged in."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         token = get_session_token()
@@ -270,18 +283,15 @@ def profile_page(session):
     execute_query(c, "SELECT * FROM users WHERE id = %s", (session["user_id"],))
     user = dict(c.fetchone())
 
-    # backup codes remaining
     execute_query(c, "SELECT COUNT(*) AS n FROM backup_codes WHERE user_id = %s AND used = 0",
                   (session["user_id"],))
     remaining = c.fetchone()["n"]
 
-    # active sessions
     execute_query(c, "SELECT COUNT(*) AS n FROM sessions WHERE user_id = %s AND expires_at > %s",
                   (session["user_id"], _iso()))
     sessions_count = c.fetchone()["n"]
     conn.close()
 
-    # Safe date formatting
     created = user.get("created_at")
     last_login = user.get("last_login")
 
@@ -459,7 +469,6 @@ def login():
             log_login_event(user_id, "Successful sign-in")
             return _login_response(token)
 
-        # Backup code
         conn = get_db()
         c = conn.cursor()
         execute_query(c, "SELECT id, code_hash FROM backup_codes WHERE user_id = %s AND used = 0", (user_id,))
@@ -484,7 +493,6 @@ def login():
         log_login_event(user_id, "Failed — wrong 2FA code")
         return jsonify({"error": "Invalid code"}), 401
 
-    # No 2FA
     token = create_session(user_id)
     conn = get_db()
     c = conn.cursor()
@@ -696,6 +704,300 @@ def api_login_history(session):
 @login_required_api
 def api_heartbeat(session):
     return jsonify({"success": True, "timeout_minutes": SESSION_TIMEOUT_MINUTES})
+
+
+# ============================================================
+# ADMIN — API KEY MANAGEMENT
+# ============================================================
+def generate_api_key():
+    prefix = "per_live_"
+    body = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
+    return prefix + body
+
+
+@app.route("/developers")
+@login_required_html
+def developers_page(session):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, key, name, owner_email, created_at, is_active, last_used, request_count FROM api_keys ORDER BY created_at DESC")
+    keys = [dict(r) for r in c.fetchall()]
+    conn.close()
+    for k in keys:
+        k["created_str"] = str(k.get("created_at") or "")[:16]
+        k["last_used_str"] = str(k.get("last_used") or "Never")[:16]
+    return render_template("developers.html", keys=keys, token=session["token"])
+
+
+@app.route("/api/admin/keys", methods=["POST"])
+@login_required_api
+def api_admin_create_key(session):
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    owner = (data.get("owner_email") or "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    new_key = generate_api_key()
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "INSERT INTO api_keys (key, name, owner_email) VALUES (%s, %s, %s)",
+                  (new_key, name, owner or None))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "key": new_key, "name": name})
+
+
+@app.route("/api/admin/keys/<int:key_id>/revoke", methods=["POST"])
+@login_required_api
+def api_admin_revoke_key(session, key_id):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "UPDATE api_keys SET is_active = 0 WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/admin/keys/<int:key_id>/activate", methods=["POST"])
+@login_required_api
+def api_admin_activate_key(session, key_id):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "UPDATE api_keys SET is_active = 1 WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/admin/keys/<int:key_id>", methods=["DELETE"])
+@login_required_api
+def api_admin_delete_key(session, key_id):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "DELETE FROM api_keys WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+# ============================================================
+# PUBLIC API v1
+# ============================================================
+def require_api_key(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        key = request.headers.get("X-API-Key", "").strip()
+        if not key:
+            return jsonify({"error": "Missing X-API-Key header"}), 401
+        conn = get_db()
+        c = conn.cursor()
+        execute_query(c, "SELECT id, is_active FROM api_keys WHERE key = %s", (key,))
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Invalid API key"}), 401
+        if not row["is_active"]:
+            conn.close()
+            return jsonify({"error": "API key revoked"}), 403
+        execute_query(c, "UPDATE api_keys SET last_used = %s, request_count = request_count + 1 WHERE id = %s",
+                      (_iso(), row["id"]))
+        conn.commit()
+        conn.close()
+        g.api_key_id = row["id"]
+        return view(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/api/v1/health", methods=["GET"])
+def api_v1_health():
+    return jsonify({"status": "ok", "service": "Perion Auth", "version": "1.0"})
+
+
+@app.route("/api/v1/signup", methods=["POST"])
+@require_api_key
+def api_v1_signup():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    name = (data.get("name") or "").strip() or None
+
+    if not email or not password:
+        return jsonify({"error": "email and password required"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "password must be at least 8 characters"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id FROM users WHERE email = %s", (email,))
+    if c.fetchone():
+        conn.close()
+        return jsonify({"error": "Email already registered"}), 409
+
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    secret = generate_secret()
+    encrypted = encrypt_secret(secret)
+
+    if os.environ.get("DATABASE_URL"):
+        execute_query(c, """
+            INSERT INTO users (email, password_hash, display_name, totp_secret_encrypted, totp_enabled)
+            VALUES (%s, %s, %s, %s, 1) RETURNING id
+        """, (email, password_hash, name, encrypted))
+        user_id = c.fetchone()["id"]
+    else:
+        execute_query(c, """
+            INSERT INTO users (email, password_hash, display_name, totp_secret_encrypted, totp_enabled)
+            VALUES (%s, %s, %s, %s, 1)
+        """, (email, password_hash, name, encrypted))
+        user_id = c.lastrowid
+
+    codes, hashes = generate_backup_codes()
+    for h in hashes:
+        execute_query(c, "INSERT INTO backup_codes (user_id, code_hash) VALUES (%s, %s)", (user_id, h))
+    conn.commit()
+    conn.close()
+
+    qr_data_uri, uri = generate_qr_data_uri(secret, email)
+    return jsonify({
+        "success": True,
+        "user_id": user_id,
+        "email": email,
+        "qr_code": qr_data_uri,
+        "uri": uri,
+        "secret": secret,
+        "backup_codes": codes
+    }), 201
+
+
+@app.route("/api/v1/login", methods=["POST"])
+@require_api_key
+def api_v1_login():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "email and password required"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, password_hash, totp_enabled FROM users WHERE email = %s", (email,))
+    user = c.fetchone()
+    conn.close()
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+    if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        log_login_event(user["id"], "Failed — wrong password (API)")
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    if user["totp_enabled"]:
+        return jsonify({
+            "success": True,
+            "totp_required": True,
+            "user_id": user["id"],
+            "message": "Call /api/v1/verify with the 6-digit code"
+        })
+
+    token = create_session(user["id"])
+    log_login_event(user["id"], "Successful sign-in (API)")
+    return jsonify({"success": True, "session_token": token, "user_id": user["id"]})
+
+
+@app.route("/api/v1/verify", methods=["POST"])
+@require_api_key
+def api_v1_verify():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    code = (data.get("code") or "").strip()
+
+    if not email or not code:
+        return jsonify({"error": "email and code required"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, totp_secret_encrypted FROM users WHERE email = %s", (email,))
+    user = c.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({"error": "User not found"}), 404
+    if is_rate_limited(user["id"]):
+        conn.close()
+        return jsonify({"error": "Too many attempts. Try again later."}), 429
+
+    secret = decrypt_secret(user["totp_secret_encrypted"])
+    if is_code_used(user["id"], code):
+        conn.close()
+        return jsonify({"error": "Code already used"}), 401
+
+    if verify_totp(secret, code):
+        mark_code_used(user["id"], code)
+        reset_rate_limit(user["id"])
+        execute_query(c, "UPDATE users SET last_login = %s WHERE id = %s", (_iso(), user["id"]))
+        conn.commit()
+        conn.close()
+        token = create_session(user["id"])
+        log_login_event(user["id"], "Successful sign-in (API 2FA)")
+        return jsonify({"success": True, "session_token": token, "user_id": user["id"]})
+
+    execute_query(c, "SELECT id, code_hash FROM backup_codes WHERE user_id = %s AND used = 0", (user["id"],))
+    rows = c.fetchall()
+    code_hash = hash_backup_code(code)
+    for row in rows:
+        if row["code_hash"] == code_hash:
+            execute_query(c, "UPDATE backup_codes SET used = 1, used_at = %s WHERE id = %s",
+                          (_iso(), row["id"]))
+            conn.commit()
+            conn.close()
+            reset_rate_limit(user["id"])
+            token = create_session(user["id"])
+            return jsonify({"success": True, "session_token": token, "user_id": user["id"], "used_backup_code": True})
+
+    increment_rate_limit(user["id"])
+    conn.commit()
+    conn.close()
+    log_login_event(user["id"], "Failed — wrong 2FA code (API)")
+    return jsonify({"error": "Invalid code"}), 401
+
+
+@app.route("/api/v1/me", methods=["GET"])
+@require_api_key
+def api_v1_me():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        return jsonify({"error": "Missing Authorization: Bearer <token>"}), 401
+    session = get_session(token)
+    if not session:
+        return jsonify({"error": "Invalid or expired session"}), 401
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, email, display_name, totp_enabled, created_at, last_login FROM users WHERE id = %s",
+                  (session["user_id"],))
+    user = dict(c.fetchone())
+    conn.close()
+    user["created_at"] = str(user.get("created_at") or "")
+    user["last_login"] = str(user.get("last_login") or "")
+    return jsonify({"success": True, "user": user})
+
+
+@app.route("/api/v1/logout", methods=["POST"])
+@require_api_key
+def api_v1_logout():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "DELETE FROM sessions WHERE token = %s", (token,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+# ============================================================
+# PUBLIC DOCS PAGE
+# ============================================================
+@app.route("/docs")
+def docs_page():
+    return render_template("docs.html")
 
 
 # ============================================================

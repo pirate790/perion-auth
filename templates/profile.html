@@ -58,7 +58,7 @@
     background:linear-gradient(135deg,#6ea8ff,#8f7bff); box-shadow:0 6px 18px rgba(110,168,255,0.45);
     font-weight:700; font-size:19px; color:#0c1322; }
   .brand-name{ font-weight:600; font-size:18px; }
-  .nav-links{ display:flex; gap:6px; }
+  .nav-links{ display:flex; gap:6px; flex-wrap:wrap; }
   .nav-link{ padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:500; text-decoration:none; color:var(--text-dim);
     border:1px solid transparent; transition:all .2s; }
   .nav-link:hover{ color:var(--text); background:rgba(255,255,255,0.06); }
@@ -142,6 +142,8 @@
       <div class="nav-links">
         <a class="nav-link active" href="/profile">Profile</a>
         <a class="nav-link" href="/settings">Settings</a>
+        <a class="nav-link" href="/developers">Developers</a>
+        <a class="nav-link" href="/docs">API Docs</a>
       </div>
     </div>
 

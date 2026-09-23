@@ -43,7 +43,6 @@ if DATABASE_URL:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Add new columns safely
         _add_column_safe(c, "users", "display_name", "TEXT")
         _add_column_safe(c, "users", "recovery_email", "TEXT")
         _add_column_safe(c, "users", "recovery_phone", "TEXT")
@@ -96,6 +95,19 @@ if DATABASE_URL:
             )
         """)
 
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id SERIAL PRIMARY KEY,
+                key TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                owner_email TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                last_used TIMESTAMP,
+                request_count INTEGER DEFAULT 0
+            )
+        """)
+
         conn.commit()
         conn.close()
         print("PostgreSQL database initialized.")
@@ -128,6 +140,7 @@ else:
     def init_db():
         conn = get_db()
         c = conn.cursor()
+
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,6 +200,19 @@ else:
                 device TEXT,
                 ip TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        execute_query(c, """
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                owner_email TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                last_used TIMESTAMP,
+                request_count INTEGER DEFAULT 0
             )
         """)
 
