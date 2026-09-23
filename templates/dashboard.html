@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#25D366">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Perion">
     <title>Dashboard — Perion Auth</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #fff; padding: 20px; }
@@ -19,5 +25,15 @@
         <span class="badge">✅ Authenticated</span>
         <p style="margin-top:24px;font-size:13px;">Session token: <code>{{ token[:30] }}...</code></p>
     </div>
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.log('SW error:', err));
+            });
+        }
+    </script>
 </body>
 </html>

@@ -1,0 +1,25 @@
+{
+  "name": "Perion Auth",
+  "short_name": "Perion",
+  "description": "Password + TOTP two-factor authentication",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#25D366",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
