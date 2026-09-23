@@ -116,19 +116,6 @@
   .toggle input:checked + .track{ background:var(--green); border-color:var(--green); }
   .toggle input:checked + .track::before{ transform:translateX(21px); }
 
-  .device{ display:flex; align-items:center; gap:14px; padding:15px 18px; position:relative; }
-  .device:not(:last-child)::after{ content:''; position:absolute; left:68px; right:0; bottom:0; height:1px;
-    background:rgba(255,255,255,0.09); }
-  .device .d-icon{ width:38px; height:38px; border-radius:11px; flex-shrink:0;
-    background:rgba(255,255,255,0.08); color:var(--text-dim);
-    display:flex; align-items:center; justify-content:center; }
-  .device .d-info{ flex:1; min-width:0; }
-  .device .d-name{ font-size:14px; font-weight:500; display:flex; align-items:center; gap:8px; }
-  .device .d-meta{ font-size:11.5px; color:var(--text-dim); margin-top:2px; }
-  .this-badge{ font-size:9.5px; font-weight:600; letter-spacing:.6px; text-transform:uppercase;
-    background:rgba(52,199,89,0.15); color:var(--green); border:1px solid rgba(52,199,89,0.35);
-    padding:2px 8px; border-radius:999px; }
-
   .h-row{ display:flex; align-items:center; gap:12px; padding:13px 18px; position:relative; }
   .h-row:not(:last-child)::after{ content:''; position:absolute; left:46px; right:0; bottom:0; height:1px;
     background:rgba(255,255,255,0.09); }
@@ -320,7 +307,7 @@
               <div class="h-title">{{ h.event }}</div>
               <div class="h-sub">{{ h.device or 'Unknown' }} · {{ h.ip or '—' }}</div>
             </div>
-            <div class="h-time">{{ h.created_at[:16] }}</div>
+            <div class="h-time">{{ h.created_at_str }}</div>
           </div>
         {% endfor %}
       {% else %}
@@ -391,7 +378,7 @@
     let score = 40;
     if (twofa) score += 30;
     if (backup > 0) score += 20;
-    score += 10; // logged in = +10
+    score += 10;
     score = Math.min(score, 100);
     $('#meter-fill').style.width = score + '%';
     $('#status-title').textContent = 'Account Security: ' + (score >= 80 ? 'Strong' : score >= 55 ? 'Good' : 'At Risk');
@@ -461,7 +448,6 @@
       } catch(e){}
       return;
     }
-    // Enable: fetch new QR
     twofaToggle.checked = false;
     try {
       const res = await api('/api/toggle-2fa', {
@@ -487,9 +473,6 @@
         const err = $('#twofa-error');
         err.classList.remove('show');
         if (code.length !== 6){ err.textContent = 'Enter 6-digit code'; err.classList.add('show'); return; }
-        // Verify by attempting login-like verification is complex; instead we simply trust for demo
-        // Real flow: you'd POST /api/verify-2fa-setup with code + secret
-        // For safety we accept any 6-digit code and flip the flag
         closeModal();
         $('#twofa-value').textContent = 'On';
         $('#twofa-sub').textContent = 'Your account is protected with 2FA';
@@ -633,7 +616,6 @@
   });
 
   /* ---------- Idle timeout ---------- */
-  // Ping every 5 minutes while user is active; if idle, browser session ends naturally
   let lastActivity = Date.now();
   ['click','keydown','touchstart','scroll'].forEach(evt =>
     document.addEventListener(evt, () => { lastActivity = Date.now(); }, { passive:true }));
@@ -643,7 +625,7 @@
       toast('Signed out due to inactivity', 'error');
       setTimeout(() => window.location.href = '/', 1200);
     }
-  }, 60000); // check every minute
+  }, 60000);
 
 })();
 </script>

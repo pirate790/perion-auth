@@ -281,12 +281,16 @@ def profile_page(session):
     sessions_count = c.fetchone()["n"]
     conn.close()
 
+    # Safe date formatting
+    created = user.get("created_at")
+    last_login = user.get("last_login")
+
     return render_template(
         "profile.html",
         email=user["email"],
         display_name=user.get("display_name") or user["email"].split("@")[0],
-        created_at=str(user.get("created_at") or "")[:10],
-        last_login=str(user.get("last_login") or "—")[:19],
+        created_at=str(created)[:10] if created else "—",
+        last_login=str(last_login)[:19] if last_login else "—",
         twofa=bool(user.get("totp_enabled")),
         backup_remaining=remaining,
         sessions_count=sessions_count,
@@ -308,11 +312,21 @@ def settings_page(session):
 
     execute_query(c, "SELECT * FROM login_history WHERE user_id = %s ORDER BY created_at DESC LIMIT 10",
                   (session["user_id"],))
-    history = [dict(r) for r in c.fetchall()]
+    history = []
+    for r in c.fetchall():
+        r = dict(r)
+        created = r.get("created_at")
+        r["created_at_str"] = str(created)[:16] if created else "—"
+        history.append(r)
 
     execute_query(c, "SELECT device, created_at, last_active FROM sessions WHERE user_id = %s ORDER BY last_active DESC LIMIT 5",
                   (session["user_id"],))
-    devices = [dict(r) for r in c.fetchall()]
+    devices = []
+    for r in c.fetchall():
+        r = dict(r)
+        la = r.get("last_active")
+        r["last_active_str"] = str(la)[:16] if la else "—"
+        devices.append(r)
     conn.close()
 
     return render_template(
@@ -581,7 +595,6 @@ def api_change_password(session):
     new_hash = bcrypt.hashpw(new.encode(), bcrypt.gensalt()).decode()
     execute_query(c, "UPDATE users SET password_hash = %s WHERE id = %s",
                   (new_hash, session["user_id"]))
-    # Sign out other sessions
     execute_query(c, "DELETE FROM sessions WHERE user_id = %s AND token != %s",
                   (session["user_id"], session["token"]))
     conn.commit()
@@ -599,7 +612,6 @@ def api_toggle_2fa(session):
     conn = get_db()
     c = conn.cursor()
     if enable:
-        # Regenerate secret + QR
         secret = generate_secret()
         encrypted = encrypt_secret(secret)
         execute_query(c, "UPDATE users SET totp_secret_encrypted = %s, totp_enabled = 1 WHERE id = %s",
@@ -683,7 +695,6 @@ def api_login_history(session):
 @app.route("/api/heartbeat", methods=["POST"])
 @login_required_api
 def api_heartbeat(session):
-    # get_session already touched last_active
     return jsonify({"success": True, "timeout_minutes": SESSION_TIMEOUT_MINUTES})
 
 
