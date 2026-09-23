@@ -198,7 +198,6 @@
   .welcome p{ color:var(--text-dim); font-size:14px; max-width:340px; }
   .welcome .btn{ width:auto; padding:12px 34px; margin-top:8px; }
 
-  /* QR / Backup codes */
   .qr-box{
     background:#fff; padding:14px; border-radius:14px;
     display:flex; align-items:center; justify-content:center;
@@ -483,7 +482,7 @@
       const res = await fetch('/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pw })
+        body: JSON.stringify({ email, password: pw, name: name })
       });
       const data = await res.json();
 
@@ -607,31 +606,16 @@
       : 'Enter your email above, then tap Forgot password again', 'info');
   });
 
-  /* ---------- Success handler ---------- */
+  /* ---------- Success handler — redirect to /profile ---------- */
   function handleLoginSuccess(email, usedBackup){
-    const name = email.split('@')[0];
     if ($('#remember-me')?.checked) {
       localStorage.setItem('perion_auth_session', JSON.stringify({ email }));
     }
-    toast('Signed in successfully!', 'success');
-    openWelcome(
-      `Welcome back, ${name}!`,
-      usedBackup
-        ? 'You signed in using a backup code. Please set up a new authenticator soon.'
-        : 'You have successfully signed in to Perion Auth.'
-    );
-
-    // Reset state
-    pendingCredentials = null;
-    $('#login-form').reset();
-    $('#totp-code').value = '';
-    $('#totp-verify').disabled = false;
-    $('#totp-verify').textContent = 'Verify';
-    const loginBtn = document.querySelector('#login-form button[type="submit"]');
-    if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Login'; }
+    toast('Signed in — redirecting...', 'success');
+    setTimeout(() => { window.location.href = '/profile'; }, 600);
   }
 
-  /* ---------- Welcome overlay ---------- */
+  /* ---------- Welcome overlay (kept for logout from other pages) ---------- */
   function openWelcome(title, text){
     $('#welcome-title').textContent = title;
     $('#welcome-text').textContent = text;

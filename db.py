@@ -3,6 +3,7 @@ import sqlite3
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+
 # ============================================================
 # POSTGRESQL (Production on Render)
 # ============================================================
@@ -17,10 +18,22 @@ if DATABASE_URL:
         cursor.execute(query, params)
         return cursor
 
+    def _column_exists(cursor, table, column):
+        cursor.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s
+        """, (table, column))
+        return cursor.fetchone() is not None
+
+    def _add_column_safe(cursor, table, column, definition):
+        if not _column_exists(cursor, table, column):
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
     def init_db():
         conn = get_db()
         c = conn.cursor()
-        execute_query(c, """
+
+        c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
@@ -30,7 +43,14 @@ if DATABASE_URL:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        execute_query(c, """
+        # Add new columns safely
+        _add_column_safe(c, "users", "display_name", "TEXT")
+        _add_column_safe(c, "users", "recovery_email", "TEXT")
+        _add_column_safe(c, "users", "recovery_phone", "TEXT")
+        _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
+        _add_column_safe(c, "users", "last_login", "TIMESTAMP")
+
+        c.execute("""
             CREATE TABLE IF NOT EXISTS backup_codes (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id),
@@ -39,14 +59,14 @@ if DATABASE_URL:
                 used_at TIMESTAMP
             )
         """)
-        execute_query(c, """
+        c.execute("""
             CREATE TABLE IF NOT EXISTS rate_limits (
                 user_id INTEGER PRIMARY KEY,
                 attempts INTEGER DEFAULT 0,
                 last_attempt TIMESTAMP
             )
         """)
-        execute_query(c, """
+        c.execute("""
             CREATE TABLE IF NOT EXISTS used_codes (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -54,7 +74,7 @@ if DATABASE_URL:
                 used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        execute_query(c, """
+        c.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL,
@@ -62,9 +82,24 @@ if DATABASE_URL:
                 expires_at TIMESTAMP NOT NULL
             )
         """)
+        _add_column_safe(c, "sessions", "last_active", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        _add_column_safe(c, "sessions", "device", "TEXT")
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS login_history (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                event TEXT NOT NULL,
+                device TEXT,
+                ip TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
         print("PostgreSQL database initialized.")
+
 
 # ============================================================
 # SQLITE (Local testing in Termux)
@@ -78,10 +113,17 @@ else:
         return conn
 
     def execute_query(cursor, query, params=None):
-        # Convert %s (Postgres) to ? (SQLite)
         sqlite_query = query.replace("%s", "?")
         cursor.execute(sqlite_query, params)
         return cursor
+
+    def _column_exists(cursor, table, column):
+        cursor.execute(f"PRAGMA table_info({table})")
+        return any(row[1] == column for row in cursor.fetchall())
+
+    def _add_column_safe(cursor, table, column, definition):
+        if not _column_exists(cursor, table, column):
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def init_db():
         conn = get_db()
@@ -96,6 +138,12 @@ else:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        _add_column_safe(c, "users", "display_name", "TEXT")
+        _add_column_safe(c, "users", "recovery_email", "TEXT")
+        _add_column_safe(c, "users", "recovery_phone", "TEXT")
+        _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
+        _add_column_safe(c, "users", "last_login", "TIMESTAMP")
+
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS backup_codes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,9 +176,24 @@ else:
                 expires_at TIMESTAMP NOT NULL
             )
         """)
+        _add_column_safe(c, "sessions", "last_active", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        _add_column_safe(c, "sessions", "device", "TEXT")
+
+        execute_query(c, """
+            CREATE TABLE IF NOT EXISTS login_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                event TEXT NOT NULL,
+                device TEXT,
+                ip TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
         print("SQLite database initialized.")
+
 
 if __name__ == "__main__":
     init_db()
