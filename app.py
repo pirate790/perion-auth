@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 import bcrypt
 import qrcode
-from db import get_db, init_db
+from db import get_db, init_db, execute_query
 from crypto_utils import (
     encrypt_secret, decrypt_secret, generate_secret,
     totp, verify_totp, generate_backup_codes, hash_backup_code
@@ -24,16 +24,18 @@ SESSION_HOURS = 24
 def is_rate_limited(user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT attempts, last_attempt FROM rate_limits WHERE user_id = ?", (user_id,))
+    execute_query(c, "SELECT attempts, last_attempt FROM rate_limits WHERE user_id = %s", (user_id,))
     row = c.fetchone()
     conn.close()
     
     if not row:
         return False
     
-    attempts, last_attempt = row
+    attempts = row['attempts']
+    last_attempt = row['last_attempt']
+    
     if last_attempt:
-        last = datetime.fromisoformat(last_attempt)
+        last = datetime.fromisoformat(str(last_attempt))
         if datetime.now() - last > timedelta(minutes=LOCKOUT_MINUTES):
             reset_rate_limit(user_id)
             return False
@@ -44,12 +46,12 @@ def increment_rate_limit(user_id):
     conn = get_db()
     c = conn.cursor()
     now = datetime.now().isoformat()
-    c.execute("""
+    execute_query(c, """
         INSERT INTO rate_limits (user_id, attempts, last_attempt)
-        VALUES (?, 1, ?)
+        VALUES (%s, 1, %s)
         ON CONFLICT(user_id) DO UPDATE SET
-            attempts = attempts + 1,
-            last_attempt = ?
+            attempts = rate_limits.attempts + 1,
+            last_attempt = %s
     """, (user_id, now, now))
     conn.commit()
     conn.close()
@@ -57,16 +59,16 @@ def increment_rate_limit(user_id):
 def reset_rate_limit(user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM rate_limits WHERE user_id = ?", (user_id,))
+    execute_query(c, "DELETE FROM rate_limits WHERE user_id = %s", (user_id,))
     conn.commit()
     conn.close()
 
 def is_code_used(user_id, code):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    execute_query(c, """
         SELECT used_at FROM used_codes 
-        WHERE user_id = ? AND code = ?
+        WHERE user_id = %s AND code = %s
         ORDER BY used_at DESC LIMIT 1
     """, (user_id, code))
     row = c.fetchone()
@@ -75,14 +77,14 @@ def is_code_used(user_id, code):
     if not row:
         return False
     
-    used_at = datetime.fromisoformat(row[0])
+    used_at = datetime.fromisoformat(str(row['used_at']))
     return datetime.now() - used_at < timedelta(seconds=30)
 
 def mark_code_used(user_id, code):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT INTO used_codes (user_id, code) VALUES (?, ?)", (user_id, code))
-    c.execute("DELETE FROM used_codes WHERE used_at < ?", 
+    execute_query(c, "INSERT INTO used_codes (user_id, code) VALUES (%s, %s)", (user_id, code))
+    execute_query(c, "DELETE FROM used_codes WHERE used_at < %s", 
               ((datetime.now() - timedelta(minutes=2)).isoformat(),))
     conn.commit()
     conn.close()
@@ -92,7 +94,7 @@ def create_session(user_id):
     expires = (datetime.now() + timedelta(hours=SESSION_HOURS)).isoformat()
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+    execute_query(c, "INSERT INTO sessions (token, user_id, expires_at) VALUES (%s, %s, %s)",
               (token, user_id, expires))
     conn.commit()
     conn.close()
@@ -101,17 +103,16 @@ def create_session(user_id):
 def get_session_user(token):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    execute_query(c, """
         SELECT user_id FROM sessions 
-        WHERE token = ? AND expires_at > ?
+        WHERE token = %s AND expires_at > %s
     """, (token, datetime.now().isoformat()))
     row = c.fetchone()
     conn.close()
-    return row[0] if row else None
+    return row['user_id'] if row else None
 
 def generate_qr_data_uri(secret, email, issuer="Perion Auth"):
-    encoded_issuer = issuer.replace(" ", "%20")
-    uri = f"otpauth://totp/{encoded_issuer}:{email}?secret={secret}&issuer={encoded_issuer}"
+    uri = f"otpauth://totp/{issuer}:{email}?secret={secret}&issuer={issuer}"
     img = qrcode.make(uri)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -140,34 +141,35 @@ def enroll():
     
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id FROM users WHERE email = ?", (email,))
+    execute_query(c, "SELECT id FROM users WHERE email = %s", (email,))
     if c.fetchone():
         conn.close()
         return jsonify({"error": "Email already registered"}), 400
     
-    # Hash password
     password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    
-    # Generate TOTP secret
     secret = generate_secret()
     encrypted = encrypt_secret(secret)
     
-    # Insert user
-    c.execute("""
-        INSERT INTO users (email, password_hash, totp_secret_encrypted, totp_enabled)
-        VALUES (?, ?, ?, 1)
-    """, (email, password_hash, encrypted))
-    user_id = c.lastrowid
+    if os.environ.get("DATABASE_URL"):
+        execute_query(c, """
+            INSERT INTO users (email, password_hash, totp_secret_encrypted, totp_enabled)
+            VALUES (%s, %s, %s, 1) RETURNING id
+        """, (email, password_hash, encrypted))
+        user_id = c.fetchone()['id']
+    else:
+        execute_query(c, """
+            INSERT INTO users (email, password_hash, totp_secret_encrypted, totp_enabled)
+            VALUES (%s, %s, %s, 1)
+        """, (email, password_hash, encrypted))
+        user_id = c.lastrowid
     
-    # Generate backup codes
     codes, hashes = generate_backup_codes()
     for h in hashes:
-        c.execute("INSERT INTO backup_codes (user_id, code_hash) VALUES (?, ?)", (user_id, h))
+        execute_query(c, "INSERT INTO backup_codes (user_id, code_hash) VALUES (%s, %s)", (user_id, h))
     
     conn.commit()
     conn.close()
     
-    # Generate QR
     qr_data_uri, uri = generate_qr_data_uri(secret, email)
     
     return jsonify({
@@ -194,56 +196,52 @@ def login():
     
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, password_hash, totp_secret_encrypted, totp_enabled FROM users WHERE email = ?", (email,))
+    execute_query(c, "SELECT id, password_hash, totp_secret_encrypted, totp_enabled FROM users WHERE email = %s", (email,))
     user = c.fetchone()
     conn.close()
     
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
     
-    user_id, password_hash, encrypted_secret, totp_enabled = user
+    user_id = user['id']
+    password_hash = user['password_hash']
+    encrypted_secret = user['totp_secret_encrypted']
+    totp_enabled = user['totp_enabled']
     
-    # Verify password
     if not bcrypt.checkpw(password.encode(), password_hash.encode()):
         return jsonify({"error": "Invalid credentials"}), 401
     
-    # If TOTP is enabled, require code
     if totp_enabled:
         if not code:
             return jsonify({"error": "TOTP code required", "totp_required": True}), 401
         
-        # Rate limit check
         if is_rate_limited(user_id):
             return jsonify({"error": "Too many attempts. Try again in 15 minutes."}), 429
         
-        # Decrypt secret
         secret = decrypt_secret(encrypted_secret)
         
-        # Check replay
         if is_code_used(user_id, code):
             return jsonify({"error": "Code already used. Wait for the next one."}), 401
         
-        # Verify TOTP
         if verify_totp(secret, code):
             mark_code_used(user_id, code)
             reset_rate_limit(user_id)
             token = create_session(user_id)
             return jsonify({"success": True, "session_token": token})
         
-        # Try backup codes
         conn = get_db()
         c = conn.cursor()
-        c.execute("SELECT id, code_hash FROM backup_codes WHERE user_id = ? AND used = 0", (user_id,))
+        execute_query(c, "SELECT id, code_hash FROM backup_codes WHERE user_id = %s AND used = 0", (user_id,))
         rows = c.fetchall()
         conn.close()
         
         code_hash = hash_backup_code(code)
         for row in rows:
-            if row[1] == code_hash:
+            if row['code_hash'] == code_hash:
                 conn = get_db()
                 c = conn.cursor()
-                c.execute("UPDATE backup_codes SET used = 1, used_at = ? WHERE id = ?",
-                          (datetime.now().isoformat(), row[0]))
+                execute_query(c, "UPDATE backup_codes SET used = 1, used_at = %s WHERE id = %s",
+                          (datetime.now().isoformat(), row['id']))
                 conn.commit()
                 conn.close()
                 reset_rate_limit(user_id)
@@ -253,7 +251,6 @@ def login():
         increment_rate_limit(user_id)
         return jsonify({"error": "Invalid code"}), 401
     
-    # No TOTP — just login
     token = create_session(user_id)
     return jsonify({"success": True, "session_token": token})
 
@@ -269,15 +266,12 @@ def dashboard():
     
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT email FROM users WHERE id = ?", (user_id,))
+    execute_query(c, "SELECT email FROM users WHERE id = %s", (user_id,))
     user = c.fetchone()
     conn.close()
     
-    return render_template("dashboard.html", email=user[0], token=token)
+    return render_template("dashboard.html", email=user['email'], token=token)
 
-# ============================================================
-# MAIN
-# ============================================================
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
