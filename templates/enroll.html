@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enroll — Perion Auth</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #fff; padding: 20px; min-height: 100vh; }
+        .card { background: #1a1a1a; border-radius: 16px; padding: 32px; max-width: 400px; margin: 0 auto; }
+        h1 { font-size: 22px; margin-bottom: 24px; }
+        label { display: block; font-size: 13px; color: #888; margin-bottom: 6px; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2a2a; background: #0f0f0f; color: #fff; font-size: 15px; margin-bottom: 16px; }
+        input:focus { outline: none; border-color: #25D366; }
+        button { width: 100%; padding: 14px; border-radius: 8px; border: none; background: #25D366; color: #000; font-weight: 600; font-size: 15px; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .hidden { display: none; }
+        .qr { text-align: center; margin: 20px 0; }
+        .qr img { width: 200px; height: 200px; background: #fff; padding: 10px; border-radius: 8px; }
+        .backup-codes { background: #0f0f0f; border-radius: 8px; padding: 16px; margin-top: 16px; font-family: monospace; font-size: 14px; }
+        .backup-codes div { padding: 4px 0; }
+        .warning { background: #3a2a00; color: #ffcc00; padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 16px; }
+        .error { color: #ff4444; font-size: 14px; margin-bottom: 16px; }
+        .step { margin-top: 24px; }
+        .step h2 { font-size: 16px; margin-bottom: 12px; }
+        a { color: #25D366; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Create Account</h1>
+        <div id="error" class="error hidden"></div>
+        
+        <div id="form-step">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="you@example.com">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Choose a strong password">
+            <button onclick="enroll()">Create Account</button>
+        </div>
+        
+        <div id="qr-step" class="hidden">
+            <div class="step">
+                <h2>1. Scan this QR code</h2>
+                <div class="qr"><img id="qr-img" src=""></div>
+                <p style="color:#888;font-size:13px;">Or enter this secret manually: <br><code id="secret-text" style="color:#25D366;"></code></p>
+            </div>
+            <div class="step">
+                <h2>2. Save these backup codes</h2>
+                <div class="backup-codes" id="backup-codes"></div>
+                <div class="warning">⚠️ Save these codes. They won't be shown again. Each can be used once.</div>
+            </div>
+            <div class="step">
+                <a href="/login">→ Go to Login</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        async function enroll() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('error');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Please fill in all fields';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/enroll', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    errorEl.textContent = data.error || 'Something went wrong';
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+                
+                document.getElementById('form-step').classList.add('hidden');
+                document.getElementById('qr-step').classList.remove('hidden');
+                document.getElementById('qr-img').src = data.qr_code;
+                document.getElementById('secret-text').textContent = data.secret;
+                
+                const codesEl = document.getElementById('backup-codes');
+                codesEl.innerHTML = data.backup_codes.map(c => `<div>${c}</div>`).join('');
+            } catch (e) {
+                errorEl.textContent = 'Network error';
+                errorEl.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

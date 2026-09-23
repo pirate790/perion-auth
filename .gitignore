@@ -1,0 +1,7 @@
+auth.db
+.master_key
+*.pyc
+__pycache__/
+.env
+venv/
+*.png

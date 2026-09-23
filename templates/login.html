@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Perion Auth</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #fff; padding: 20px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #1a1a1a; border-radius: 16px; padding: 32px; max-width: 400px; width: 100%; }
+        h1 { font-size: 22px; margin-bottom: 24px; }
+        label { display: block; font-size: 13px; color: #888; margin-bottom: 6px; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2a2a; background: #0f0f0f; color: #fff; font-size: 15px; margin-bottom: 16px; }
+        input:focus { outline: none; border-color: #25D366; }
+        button { width: 100%; padding: 14px; border-radius: 8px; border: none; background: #25D366; color: #000; font-weight: 600; font-size: 15px; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .hidden { display: none; }
+        .error { color: #ff4444; font-size: 14px; margin-bottom: 16px; }
+        .success { color: #25D366; font-size: 14px; margin-bottom: 16px; }
+        code { background: #0f0f0f; padding: 2px 6px; border-radius: 4px; font-size: 13px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Login</h1>
+        <div id="error" class="error hidden"></div>
+        <div id="success" class="success hidden"></div>
+        
+        <div id="step1">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="you@example.com">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Your password">
+            <button onclick="login()">Continue</button>
+        </div>
+        
+        <div id="step2" class="hidden">
+            <label>6-digit code from your authenticator app</label>
+            <input type="text" id="code" placeholder="000000" maxlength="6" inputmode="numeric">
+            <button onclick="verify()">Verify</button>
+        </div>
+    </div>
+    
+    <script>
+        let credentials = {};
+        
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('error');
+            const successEl = document.getElementById('success');
+            
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+            
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    successEl.textContent = 'Login successful! Token: ' + data.session_token.slice(0, 20) + '...';
+                    successEl.classList.remove('hidden');
+                    return;
+                }
+                
+                if (data.totp_required) {
+                    credentials = { email, password };
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    return;
+                }
+                
+                errorEl.textContent = data.error || 'Login failed';
+                errorEl.classList.remove('hidden');
+            } catch (e) {
+                errorEl.textContent = 'Network error';
+                errorEl.classList.remove('hidden');
+            }
+        }
+        
+        async function verify() {
+            const code = document.getElementById('code').value;
+            const errorEl = document.getElementById('error');
+            const successEl = document.getElementById('success');
+            
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+            
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...credentials, code })
+                });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    successEl.innerHTML = '✅ Login successful!<br>Session: <code>' + data.session_token.slice(0, 30) + '...</code>';
+                    successEl.classList.remove('hidden');
+                    return;
+                }
+                
+                errorEl.textContent = data.error || 'Verification failed';
+                errorEl.classList.remove('hidden');
+            } catch (e) {
+                errorEl.textContent = 'Network error';
+                errorEl.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perion Auth</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .card { background: #1a1a1a; border-radius: 16px; padding: 32px; width: 100%; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        p { color: #888; margin-bottom: 24px; font-size: 14px; }
+        a { display: block; text-align: center; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 12px; transition: opacity 0.2s; }
+        a:hover { opacity: 0.85; }
+        .primary { background: #25D366; color: #000; }
+        .secondary { background: #2a2a2a; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 Perion Auth</h1>
+        <p>Password + TOTP two-factor authentication</p>
+        <a href="/enroll" class="primary">Create Account</a>
+        <a href="/login" class="secondary">Login</a>
+    </div>
+</body>
+</html>

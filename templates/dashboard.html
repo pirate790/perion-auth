@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Perion Auth</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: #fff; padding: 20px; }
+        .card { background: #1a1a1a; border-radius: 16px; padding: 32px; max-width: 500px; margin: 0 auto; }
+        h1 { font-size: 22px; margin-bottom: 8px; }
+        p { color: #888; margin-bottom: 24px; }
+        .badge { display: inline-block; background: #25D366; color: #000; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Dashboard</h1>
+        <p>Welcome, {{ email }}</p>
+        <span class="badge">✅ Authenticated</span>
+        <p style="margin-top:24px;font-size:13px;">Session token: <code>{{ token[:30] }}...</code></p>
+    </div>
+</body>
+</html>
