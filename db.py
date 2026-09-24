@@ -49,6 +49,8 @@ if DATABASE_URL:
         _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
         _add_column_safe(c, "users", "last_login", "TIMESTAMP")
         _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
+        _add_column_safe(c, "users", "reset_token", "TEXT")
+        _add_column_safe(c, "users", "reset_token_expiry", "TIMESTAMP")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS backup_codes (
@@ -159,6 +161,8 @@ else:
         _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
         _add_column_safe(c, "users", "last_login", "TIMESTAMP")
         _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
+        _add_column_safe(c, "users", "reset_token", "TEXT")
+        _add_column_safe(c, "users", "reset_token_expiry", "TIMESTAMP")
 
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS backup_codes (

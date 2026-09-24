@@ -143,6 +143,13 @@
   }
   .form-error.show{ display:block; animation:pop .3s ease; }
 
+  .form-success{
+    display:none; font-size:12.5px; color:var(--success);
+    background:rgba(125,219,163,0.1); border:1px solid rgba(125,219,163,0.3);
+    border-radius:10px; padding:9px 13px; margin-bottom:16px;
+  }
+  .form-success.show{ display:block; animation:pop .3s ease; }
+
   .row{ display:flex; align-items:center; justify-content:space-between; margin:2px 2px 20px; font-size:13px; }
   .remember{ display:flex; align-items:center; gap:8px; color:var(--text-dim); cursor:pointer; user-select:none; }
   .remember input{ accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
@@ -291,6 +298,9 @@
         </form>
 
         <p class="switch-line">Don't have an account? <a class="link" href="#" data-goto="signup"><strong>Register</strong></a></p>
+        <p class="switch-line" style="margin-top:8px;font-size:12.5px;">
+          Are you a developer? <a class="link" href="/docs"><strong>Read the API Docs →</strong></a>
+        </p>
       </div>
     </section>
 
@@ -336,6 +346,9 @@
         </form>
 
         <p class="switch-line">Already have an account? <a class="link" href="#" data-goto="login"><strong>Login</strong></a></p>
+        <p class="switch-line" style="margin-top:8px;font-size:12.5px;">
+          Want to integrate Perion Auth into your app? <a class="link" href="/docs"><strong>See API Docs →</strong></a>
+        </p>
         <p class="terms">By continuing, you confirm that you've read and agreed to the <a href="#">Terms of Service</a> and consent to the <a href="#">Privacy Policy</a>.</p>
       </div>
     </section>
@@ -390,6 +403,66 @@
       </div>
     </section>
 
+    <!-- ================= FORGOT PASSWORD ================= -->
+    <section class="view" id="view-forgot">
+      <div class="card">
+        <div class="brand">
+          <div class="brand-badge">P</div>
+          <div class="brand-name">Perion Auth</div>
+        </div>
+        <h1>Forgot password?</h1>
+        <p class="subtitle">Enter your email and we'll send you a reset link</p>
+
+        <div class="form-error" id="forgot-error"></div>
+        <div class="form-success" id="forgot-success"></div>
+
+        <form id="forgot-form" novalidate>
+          <div class="field">
+            <input type="email" id="forgot-email" placeholder="Email address" autocomplete="email" />
+            <span class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+            </span>
+          </div>
+          <button class="btn" type="submit">Send Reset Link</button>
+        </form>
+
+        <p class="switch-line"><a class="link" href="#" data-goto="login"><strong>← Back to login</strong></a></p>
+      </div>
+    </section>
+
+    <!-- ================= RESET PASSWORD ================= -->
+    <section class="view" id="view-reset">
+      <div class="card">
+        <div class="brand">
+          <div class="brand-badge">P</div>
+          <div class="brand-name">Perion Auth</div>
+        </div>
+        <h1>Set new password</h1>
+        <p class="subtitle">Choose a strong password for your account</p>
+
+        <div class="form-error" id="reset-error"></div>
+        <div class="form-success" id="reset-success"></div>
+
+        <form id="reset-form" novalidate>
+          <div class="field">
+            <input type="password" id="reset-password" placeholder="New password (min. 8 characters)" autocomplete="new-password" />
+            <button type="button" class="eye" data-eye="reset-password" aria-label="Show password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field">
+            <input type="password" id="reset-confirm" placeholder="Confirm new password" autocomplete="new-password" />
+            <span class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+          </div>
+          <button class="btn" type="submit">Update Password</button>
+        </form>
+
+        <p class="switch-line"><a class="link" href="#" data-goto="login"><strong>← Back to login</strong></a></p>
+      </div>
+    </section>
+
   </div>
 
   <!-- Welcome overlay -->
@@ -411,6 +484,7 @@
 
   let pendingCredentials = null;
   let lastSignupEmail = '';
+  let resetToken = null;
 
   /* ---------- View switching ---------- */
   function showView(name){
@@ -445,8 +519,17 @@
     el.textContent = msg;
     el.classList.add('show');
   }
+  function showSuccess(id, msg){
+    const el = $('#' + id);
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+  }
   function clearErrors(){
     $$('.form-error').forEach(el => el.classList.remove('show'));
+  }
+  function clearSuccess(){
+    $$('.form-success').forEach(el => el.classList.remove('show'));
   }
 
   /* ---------- Password visibility ---------- */
@@ -597,13 +680,99 @@
     toast('Now sign in with your password and 6-digit code', 'info');
   });
 
-  /* ---------- Forgot password ---------- */
+  /* ---------- Forgot password link ---------- */
   $('#forgot-link').addEventListener('click', (e) => {
     e.preventDefault();
     const email = $('#login-email').value.trim();
-    toast(validEmail(email)
-      ? `Password reset link sent to ${email}`
-      : 'Enter your email above, then tap Forgot password again', 'info');
+    $('#forgot-email').value = validEmail(email) ? email : '';
+    clearErrors();
+    clearSuccess();
+    showView('forgot');
+  });
+
+  /* ---------- Forgot password form — POST /api/forgot-password ---------- */
+  $('#forgot-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+    clearSuccess();
+    const email = $('#forgot-email').value.trim().toLowerCase();
+
+    if (!validEmail(email)) return showError('forgot-error', 'Please enter a valid email address.');
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+      const res = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError('forgot-error', data.error || 'Something went wrong.');
+        btn.disabled = false;
+        btn.textContent = 'Send Reset Link';
+        return;
+      }
+
+      showSuccess('forgot-success',
+        'If that email is registered, a password reset link has been sent. Check your inbox (and spam folder).');
+      e.target.reset();
+      btn.disabled = false;
+      btn.textContent = 'Send Reset Link';
+    } catch (err) {
+      showError('forgot-error', 'Network error. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send Reset Link';
+    }
+  });
+
+  /* ---------- Reset password form — POST /api/reset-password ---------- */
+  $('#reset-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+    clearSuccess();
+    const pw = $('#reset-password').value;
+    const cf = $('#reset-confirm').value;
+
+    if (!resetToken) return showError('reset-error', 'Reset token missing. Please use the link from your email.');
+    if (pw.length < 8) return showError('reset-error', 'Password must be at least 8 characters.');
+    if (pw !== cf) return showError('reset-error', 'Passwords do not match.');
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    try {
+      const res = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password: pw, confirm: cf })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError('reset-error', data.error || 'Something went wrong.');
+        btn.disabled = false;
+        btn.textContent = 'Update Password';
+        return;
+      }
+
+      showSuccess('reset-success', 'Password updated! Redirecting to login...');
+      setTimeout(() => {
+        resetToken = null;
+        window.history.replaceState({}, '', '/');
+        showView('login');
+        toast('Password updated — sign in now', 'success');
+      }, 1500);
+    } catch (err) {
+      showError('reset-error', 'Network error. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Update Password';
+    }
   });
 
   /* ---------- Success handler — redirect to /profile ---------- */
@@ -615,7 +784,7 @@
     setTimeout(() => { window.location.href = '/profile'; }, 600);
   }
 
-  /* ---------- Welcome overlay (kept for logout from other pages) ---------- */
+  /* ---------- Welcome overlay ---------- */
   function openWelcome(title, text){
     $('#welcome-title').textContent = title;
     $('#welcome-text').textContent = text;
@@ -633,6 +802,15 @@
   if (session && session.email) {
     $('#login-email').value = session.email;
     $('#remember-me').checked = true;
+  }
+
+  /* ---------- Detect ?token=... to show reset view ---------- */
+  const params = new URLSearchParams(window.location.search);
+  const tokenFromUrl = params.get('token');
+  if (tokenFromUrl && window.location.pathname === '/reset-password') {
+    resetToken = tokenFromUrl;
+    showView('reset');
+    setTimeout(() => $('#reset-password').focus(), 300);
   }
 })();
 </script>

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response, g
 import bcrypt
 import qrcode
+import requests as http_requests
 from db import get_db, init_db, execute_query
 from crypto_utils import (
     encrypt_secret, decrypt_secret, generate_secret,
@@ -41,6 +42,9 @@ LOCKOUT_MINUTES = 15
 SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.perionauth.ryzedns.org")
+RESET_TOKEN_HOURS = 1
 
 
 # ============================================================
@@ -92,6 +96,51 @@ def log_login_event(user_id, event):
         conn.close()
     except Exception:
         pass
+
+
+def send_reset_email(to_email, reset_token):
+    """Send a password reset email via Resend API."""
+    if not RESEND_API_KEY:
+        print(f"[DEV] RESEND_API_KEY not set. Reset link: {APP_BASE_URL}/reset-password?token={reset_token}")
+        return False
+
+    reset_link = f"{APP_BASE_URL}/reset-password?token={reset_token}"
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#f9f9f9;border-radius:12px;">
+      <h2 style="color:#101828;">Reset your Perion Auth password</h2>
+      <p style="color:#344054;">Someone requested a password reset for your account.</p>
+      <p style="color:#344054;">Click the button below to choose a new password. This link expires in <strong>{RESET_TOKEN_HOURS} hour(s)</strong>.</p>
+      <p style="text-align:center;margin:28px 0;">
+        <a href="{reset_link}" style="display:inline-block;background:#25D366;color:#0f0f0f;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:600;">Reset Password</a>
+      </p>
+      <p style="color:#667085;font-size:13px;">Or copy this link into your browser:<br>{reset_link}</p>
+      <hr style="border:none;border-top:1px solid #e4e7ec;margin:24px 0;">
+      <p style="color:#98a2b3;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    """
+
+    try:
+        r = http_requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": "Perion Auth <onboarding@resend.dev>",
+                "to": to_email,
+                "subject": "Reset your Perion Auth password",
+                "html": html
+            },
+            timeout=15
+        )
+        if r.status_code >= 400:
+            print(f"Resend error {r.status_code}: {r.text}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Email send failed: {e}")
+        return False
 
 
 # ============================================================
@@ -164,7 +213,6 @@ def login_required_html(view):
 
 
 def is_admin_user(user_id):
-    """Admin = matches ADMIN_EMAIL env var, or has is_admin=1 in DB."""
     conn = get_db()
     c = conn.cursor()
     execute_query(c, "SELECT email, is_admin FROM users WHERE id = %s", (user_id,))
@@ -190,7 +238,6 @@ def login_required_api(view):
 
 
 def admin_required_api(view):
-    """Only allow admin users to use admin APIs."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         token = get_session_token()
@@ -204,7 +251,6 @@ def admin_required_api(view):
 
 
 def _user_owns_key(user_id, key_id):
-    """Returns True if user owns the key OR is admin."""
     if is_admin_user(user_id):
         return True
     conn = get_db()
@@ -401,6 +447,12 @@ def settings_page(session):
     )
 
 
+@app.route("/reset-password")
+def reset_password_page():
+    """Serve the single-page app; JS will read ?token= from the URL."""
+    return render_template("index.html")
+
+
 # ============================================================
 # API — ENROLL / LOGIN
 # ============================================================
@@ -557,6 +609,81 @@ def _login_response(token, used_backup_code=False):
     resp.set_cookie("perion_session", token, httponly=True, samesite="Lax",
                     max_age=SESSION_HOURS * 3600)
     return resp
+
+
+# ============================================================
+# PASSWORD RESET
+# ============================================================
+@app.route("/api/forgot-password", methods=["POST"])
+def api_forgot_password():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id FROM users WHERE email = %s", (email,))
+    user = c.fetchone()
+
+    if user:
+        token = secrets.token_urlsafe(32)
+        expiry = (_now() + timedelta(hours=RESET_TOKEN_HOURS)).isoformat()
+        execute_query(c,
+            "UPDATE users SET reset_token = %s, reset_token_expiry = %s WHERE id = %s",
+            (token, expiry, user["id"]))
+        conn.commit()
+        conn.close()
+        send_reset_email(email, token)
+    else:
+        conn.close()
+
+    # Always return success to prevent email enumeration
+    return jsonify({
+        "success": True,
+        "message": "If that email is registered, a reset link has been sent."
+    })
+
+
+@app.route("/api/reset-password", methods=["POST"])
+def api_reset_password():
+    data = request.get_json() or {}
+    token = (data.get("token") or "").strip()
+    new_password = data.get("password") or ""
+    confirm = data.get("confirm") or ""
+
+    if not token:
+        return jsonify({"error": "Reset token missing"}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    if new_password != confirm:
+        return jsonify({"error": "Passwords do not match"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, reset_token_expiry FROM users WHERE reset_token = %s", (token,))
+    user = c.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"error": "Invalid or expired reset link"}), 400
+
+    expiry = _parse(user["reset_token_expiry"])
+    if not expiry or _now() > expiry:
+        conn.close()
+        return jsonify({"error": "Reset link has expired. Request a new one."}), 400
+
+    new_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    execute_query(c,
+        "UPDATE users SET password_hash = %s, reset_token = NULL, reset_token_expiry = NULL WHERE id = %s",
+        (new_hash, user["id"]))
+    # Invalidate all existing sessions for security
+    execute_query(c, "DELETE FROM sessions WHERE user_id = %s", (user["id"],))
+    conn.commit()
+    conn.close()
+
+    log_login_event(user["id"], "Password reset via email link")
+    return jsonify({"success": True, "message": "Password updated. You can now sign in."})
 
 
 # ============================================================
