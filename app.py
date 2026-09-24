@@ -40,6 +40,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 
 
 # ============================================================
@@ -162,6 +163,21 @@ def login_required_html(view):
     return wrapper
 
 
+def is_admin_user(user_id):
+    """Admin = matches ADMIN_EMAIL env var, or has is_admin=1 in DB."""
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT email, is_admin FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return False
+    email = (row["email"] or "").lower()
+    if ADMIN_EMAIL and email == ADMIN_EMAIL:
+        return True
+    return bool(row.get("is_admin"))
+
+
 def login_required_api(view):
     @wraps(view)
     def wrapper(*args, **kwargs):
@@ -171,6 +187,34 @@ def login_required_api(view):
             return jsonify({"error": "Not authenticated", "code": "session_expired"}), 401
         return view(session, *args, **kwargs)
     return wrapper
+
+
+def admin_required_api(view):
+    """Only allow admin users to use admin APIs."""
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        token = get_session_token()
+        session = get_session(token)
+        if not session:
+            return jsonify({"error": "Not authenticated"}), 401
+        if not is_admin_user(session["user_id"]):
+            return jsonify({"error": "Admin access required"}), 403
+        return view(session, *args, **kwargs)
+    return wrapper
+
+
+def _user_owns_key(user_id, key_id):
+    """Returns True if user owns the key OR is admin."""
+    if is_admin_user(user_id):
+        return True
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT owner_user_id FROM api_keys WHERE id = %s", (key_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return False
+    return row["owner_user_id"] == user_id
 
 
 # ============================================================
@@ -304,6 +348,7 @@ def profile_page(session):
         twofa=bool(user.get("totp_enabled")),
         backup_remaining=remaining,
         sessions_count=sessions_count,
+        is_admin=is_admin_user(session["user_id"]),
         token=session["token"],
     )
 
@@ -351,6 +396,7 @@ def settings_page(session):
         timeout_minutes=SESSION_TIMEOUT_MINUTES,
         history=history,
         devices=devices,
+        is_admin=is_admin_user(session["user_id"]),
         token=session["token"],
     )
 
@@ -707,7 +753,7 @@ def api_heartbeat(session):
 
 
 # ============================================================
-# ADMIN — API KEY MANAGEMENT
+# API KEY MANAGEMENT (self-serve)
 # ============================================================
 def generate_api_key():
     prefix = "per_live_"
@@ -718,15 +764,31 @@ def generate_api_key():
 @app.route("/developers")
 @login_required_html
 def developers_page(session):
+    admin = is_admin_user(session["user_id"])
     conn = get_db()
     c = conn.cursor()
-    execute_query(c, "SELECT id, key, name, owner_email, created_at, is_active, last_used, request_count FROM api_keys ORDER BY created_at DESC")
+    if admin:
+        execute_query(c, """
+            SELECT k.id, k.key, k.name, k.owner_email, k.created_at, k.is_active,
+                   k.last_used, k.request_count, k.owner_user_id, u.email AS owner_user_email
+            FROM api_keys k
+            LEFT JOIN users u ON u.id = k.owner_user_id
+            ORDER BY k.created_at DESC
+        """)
+    else:
+        execute_query(c, """
+            SELECT id, key, name, owner_email, created_at, is_active,
+                   last_used, request_count, owner_user_id, NULL AS owner_user_email
+            FROM api_keys
+            WHERE owner_user_id = %s
+            ORDER BY created_at DESC
+        """, (session["user_id"],))
     keys = [dict(r) for r in c.fetchall()]
     conn.close()
     for k in keys:
         k["created_str"] = str(k.get("created_at") or "")[:16]
         k["last_used_str"] = str(k.get("last_used") or "Never")[:16]
-    return render_template("developers.html", keys=keys, token=session["token"])
+    return render_template("developers.html", keys=keys, is_admin=admin, token=session["token"])
 
 
 @app.route("/api/admin/keys", methods=["POST"])
@@ -734,14 +796,20 @@ def developers_page(session):
 def api_admin_create_key(session):
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
-    owner = (data.get("owner_email") or "").strip()
     if not name:
         return jsonify({"error": "Name is required"}), 400
-    new_key = generate_api_key()
+
     conn = get_db()
     c = conn.cursor()
-    execute_query(c, "INSERT INTO api_keys (key, name, owner_email) VALUES (%s, %s, %s)",
-                  (new_key, name, owner or None))
+    execute_query(c, "SELECT email FROM users WHERE id = %s", (session["user_id"],))
+    row = c.fetchone()
+    owner_email = row["email"] if row else None
+
+    new_key = generate_api_key()
+    execute_query(c, """
+        INSERT INTO api_keys (key, name, owner_email, owner_user_id)
+        VALUES (%s, %s, %s, %s)
+    """, (new_key, name, owner_email, session["user_id"]))
     conn.commit()
     conn.close()
     return jsonify({"success": True, "key": new_key, "name": name})
@@ -750,6 +818,8 @@ def api_admin_create_key(session):
 @app.route("/api/admin/keys/<int:key_id>/revoke", methods=["POST"])
 @login_required_api
 def api_admin_revoke_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
     conn = get_db()
     c = conn.cursor()
     execute_query(c, "UPDATE api_keys SET is_active = 0 WHERE id = %s", (key_id,))
@@ -761,6 +831,8 @@ def api_admin_revoke_key(session, key_id):
 @app.route("/api/admin/keys/<int:key_id>/activate", methods=["POST"])
 @login_required_api
 def api_admin_activate_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
     conn = get_db()
     c = conn.cursor()
     execute_query(c, "UPDATE api_keys SET is_active = 1 WHERE id = %s", (key_id,))
@@ -772,6 +844,8 @@ def api_admin_activate_key(session, key_id):
 @app.route("/api/admin/keys/<int:key_id>", methods=["DELETE"])
 @login_required_api
 def api_admin_delete_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
     conn = get_db()
     c = conn.cursor()
     execute_query(c, "DELETE FROM api_keys WHERE id = %s", (key_id,))

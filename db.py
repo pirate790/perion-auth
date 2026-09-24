@@ -48,6 +48,7 @@ if DATABASE_URL:
         _add_column_safe(c, "users", "recovery_phone", "TEXT")
         _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
         _add_column_safe(c, "users", "last_login", "TIMESTAMP")
+        _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS backup_codes (
@@ -107,6 +108,7 @@ if DATABASE_URL:
                 request_count INTEGER DEFAULT 0
             )
         """)
+        _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
 
         conn.commit()
         conn.close()
@@ -156,6 +158,7 @@ else:
         _add_column_safe(c, "users", "recovery_phone", "TEXT")
         _add_column_safe(c, "users", "session_length", "INTEGER DEFAULT 30")
         _add_column_safe(c, "users", "last_login", "TIMESTAMP")
+        _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
 
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS backup_codes (
@@ -215,6 +218,7 @@ else:
                 request_count INTEGER DEFAULT 0
             )
         """)
+        _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
 
         conn.commit()
         conn.close()

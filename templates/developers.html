@@ -49,7 +49,7 @@
     background:radial-gradient(ellipse at center, transparent 45%, rgba(5,8,14,0.75) 100%); }
 
   .page{ position:relative; z-index:3; max-width:640px; margin:0 auto; padding:130px 20px 40px; }
-  .topbar{ display:flex; align-items:center; gap:12px; justify-content:space-between; }
+  .topbar{ display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; }
   .brand{ display:flex; align-items:center; gap:10px; }
   .brand-badge{ width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
     background:linear-gradient(135deg,#6ea8ff,#8f7bff); box-shadow:0 6px 18px rgba(110,168,255,0.45);
@@ -86,6 +86,8 @@
   .badge{ font-size:10.5px; padding:3px 9px; border-radius:999px; font-weight:600; letter-spacing:.4px; }
   .badge.active{ background:rgba(52,199,89,0.15); color:var(--green); border:1px solid rgba(52,199,89,0.35); }
   .badge.revoked{ background:rgba(255,123,123,0.15); color:var(--red); border:1px solid rgba(255,123,123,0.35); }
+  .badge.admin{ background:rgba(110,168,255,0.15); color:var(--accent); border:1px solid rgba(110,168,255,0.35);
+    margin-left:6px; }
 
   .m-label{ font-size:12.5px; color:var(--text-dim); margin:12px 0 6px; display:block; }
   .m-input{ width:100%; padding:12px 16px; background:rgba(255,255,255,0.07);
@@ -133,19 +135,29 @@
       </div>
     </div>
 
-    <h1>Developer API Keys</h1>
-    <p class="subtitle">Generate API keys for other developers to use Perion Auth in their apps</p>
+    <h1>
+      {% if is_admin %}All Developer API Keys{% else %}Your API Keys{% endif %}
+      {% if is_admin %}<span class="badge admin">ADMIN VIEW</span>{% endif %}
+    </h1>
+    <p class="subtitle">
+      {% if is_admin %}
+        Showing keys from all users. You can see who owns what.
+      {% else %}
+        Generate API keys to use Perion Auth in your own apps. You can only see your own keys.
+      {% endif %}
+    </p>
 
     <div class="card">
       <button class="btn" id="new-key-btn">+ Generate New API Key</button>
       <p style="font-size:12px; color:var(--text-dim); margin-top:12px; line-height:1.6;">
-        Share a key with a developer. They'll call your API at
-        <code style="background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px;">/api/v1/*</code>
-        with header <code style="background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px;">X-API-Key: &lt;their_key&gt;</code>.
+        Read the <a href="/docs" style="color:var(--accent);">API documentation</a> to learn how to use your key.
+        Keep it secret — treat it like a password.
       </p>
     </div>
 
-    <h2 style="font-size:14px; color:var(--text-dim); margin:26px 6px 10px; text-transform:uppercase; letter-spacing:1.2px;">Active Keys</h2>
+    <h2 style="font-size:14px; color:var(--text-dim); margin:26px 6px 10px; text-transform:uppercase; letter-spacing:1.2px;">
+      {% if is_admin %}All Keys{% else %}Your Keys{% endif %}
+    </h2>
 
     <div id="keys-list">
       {% if keys %}
@@ -154,7 +166,13 @@
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
               <div>
                 <div class="key-name">{{ k.name }}</div>
-                <div class="key-owner">{{ k.owner_email or 'No owner set' }}</div>
+                <div class="key-owner">
+                  {% if is_admin %}
+                    Owner: {{ k.owner_user_email or k.owner_email or 'Unknown' }}
+                  {% else %}
+                    {{ k.owner_email or '' }}
+                  {% endif %}
+                </div>
               </div>
               <span class="badge {% if k.is_active %}active{% else %}revoked{% endif %}">
                 {% if k.is_active %}ACTIVE{% else %}REVOKED{% endif %}
@@ -167,7 +185,7 @@
               <span>Requests: {{ k.request_count }}</span>
             </div>
             <div class="key-actions">
-              <button class="btn ghost small copy-btn" data-key="{{ k.key }}">Copy Key</button>
+              <button class="btn ghost small copy-btn" data-key="{{ k.key }}">Copy</button>
               {% if k.is_active %}
                 <button class="btn danger small revoke-btn" data-id="{{ k.id }}">Revoke</button>
               {% else %}
@@ -178,7 +196,13 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="card empty">No API keys yet. Click "Generate New API Key" to create one for your friend.</div>
+        <div class="card empty">
+          {% if is_admin %}
+            No API keys exist yet.
+          {% else %}
+            You haven't created any API keys yet. Click <strong>Generate New API Key</strong> above to get started.
+          {% endif %}
+        </div>
       {% endif %}
     </div>
 
@@ -187,10 +211,8 @@
   <div class="overlay" id="overlay">
     <div class="modal">
       <h3 style="margin-bottom:14px;" id="modal-title">New API Key</h3>
-      <label class="m-label">Key Name (e.g. "John's App")</label>
-      <input type="text" class="m-input" id="key-name" placeholder="My Friend's App" />
-      <label class="m-label">Owner Email (optional)</label>
-      <input type="email" class="m-input" id="key-owner" placeholder="friend@example.com" />
+      <label class="m-label">Key Name</label>
+      <input type="text" class="m-input" id="key-name" placeholder="e.g. My Shopping App" />
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button class="btn" style="flex:1;" id="create-key-confirm">Generate</button>
         <button class="btn ghost" id="cancel-btn">Cancel</button>
@@ -220,13 +242,12 @@
 
   $('#create-key-confirm').addEventListener('click', async () => {
     const name = $('#key-name').value.trim();
-    const owner = $('#key-owner').value.trim();
-    if (!name){ toast('Name is required', 'error'); return; }
+    if (!name){ toast('Please enter a name', 'error'); return; }
     try {
       const res = await fetch('/api/admin/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, owner_email: owner })
+        body: JSON.stringify({ name })
       });
       const data = await res.json();
       if (!res.ok){ toast(data.error || 'Failed', 'error'); return; }
@@ -241,20 +262,23 @@
   }));
 
   $$('.revoke-btn').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('Revoke this key? The developer will lose access.')) return;
+    if (!confirm('Revoke this key? Any app using it will lose access.')) return;
     const res = await fetch(`/api/admin/keys/${b.dataset.id}/revoke`, { method: 'POST' });
     if (res.ok){ toast('Revoked', 'success'); setTimeout(() => location.reload(), 500); }
+    else { toast('Failed', 'error'); }
   }));
 
   $$('.activate-btn').forEach(b => b.addEventListener('click', async () => {
     const res = await fetch(`/api/admin/keys/${b.dataset.id}/activate`, { method: 'POST' });
     if (res.ok){ toast('Activated', 'success'); setTimeout(() => location.reload(), 500); }
+    else { toast('Failed', 'error'); }
   }));
 
   $$('.delete-btn').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Permanently delete this key?')) return;
     const res = await fetch(`/api/admin/keys/${b.dataset.id}`, { method: 'DELETE' });
     if (res.ok){ toast('Deleted', 'success'); setTimeout(() => location.reload(), 500); }
+    else { toast('Failed', 'error'); }
   }));
 })();
 </script>

@@ -341,7 +341,6 @@
   const $$ = (s, c=document) => [...c.querySelectorAll(s)];
   const TIMEOUT = {{ timeout_minutes }};
 
-  /* ---------- Toast ---------- */
   let toastTimer;
   function toast(msg, type='info'){
     const t = $('#toast');
@@ -351,7 +350,6 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  /* ---------- Handle session expiry ---------- */
   async function api(url, opts={}){
     const res = await fetch(url, opts);
     if (res.status === 401){
@@ -362,7 +360,6 @@
     return res;
   }
 
-  /* ---------- Modal ---------- */
   const overlay = $('#overlay');
   function openModal(title, bodyHTML){
     $('#modal-title').textContent = title;
@@ -373,7 +370,6 @@
   $('#modal-close').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  /* ---------- Security status ---------- */
   function refreshStatus(){
     const twofa = $('#twofa-toggle').checked;
     const backup = parseInt($('#backup-value').textContent) || 0;
@@ -388,7 +384,6 @@
   }
   refreshStatus();
 
-  /* ---------- Change password ---------- */
   $('#change-pw-btn').addEventListener('click', () => {
     openModal('Change Password', `
       <label class="m-label">Current password</label>
@@ -426,7 +421,6 @@
     });
   });
 
-  /* ---------- 2FA toggle ---------- */
   const twofaToggle = $('#twofa-toggle');
   twofaToggle.addEventListener('change', async () => {
     const enable = twofaToggle.checked;
@@ -485,7 +479,6 @@
     } catch(e){}
   });
 
-  /* ---------- Backup codes ---------- */
   $('#backup-btn').addEventListener('click', () => {
     openModal('Backup Codes', `
       <p class="m-note" style="margin-top:0;">This will replace your existing codes. Old codes stop working immediately.</p>
@@ -514,7 +507,6 @@
     });
   });
 
-  /* ---------- Session length ---------- */
   $('#session-length-btn').addEventListener('click', () => {
     openModal('Session Length', `
       <p class="m-note" style="margin-top:0;">How long you stay signed in before needing to log in again.</p>
@@ -540,7 +532,6 @@
     }));
   });
 
-  /* ---------- Sign out all ---------- */
   $('#signout-all-btn').addEventListener('click', async () => {
     if (!confirm('Sign out of all other devices?')) return;
     try {
@@ -549,13 +540,11 @@
     } catch(e){}
   });
 
-  /* ---------- Sign out ---------- */
   $('#logout-btn').addEventListener('click', async () => {
     try { await api('/api/logout', { method: 'POST' }); } catch(e){}
     window.location.href = '/';
   });
 
-  /* ---------- Recovery email ---------- */
   $('#recovery-email-btn').addEventListener('click', () => {
     const current = $('#recovery-email-value').textContent === 'Not set' ? '' : $('#recovery-email-value').textContent;
     openModal('Recovery Email', `
@@ -586,7 +575,6 @@
     });
   });
 
-  /* ---------- Recovery phone ---------- */
   $('#recovery-phone-btn').addEventListener('click', () => {
     const current = $('#recovery-phone-value').textContent === 'Not set' ? '' : $('#recovery-phone-value').textContent;
     openModal('Recovery Phone', `
@@ -617,7 +605,6 @@
     });
   });
 
-  /* ---------- Idle timeout ---------- */
   let lastActivity = Date.now();
   ['click','keydown','touchstart','scroll'].forEach(evt =>
     document.addEventListener(evt, () => { lastActivity = Date.now(); }, { passive:true }));
