@@ -45,7 +45,7 @@ LOCKOUT_MINUTES = 15
 SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
-BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.perionauth.ryzedns.org")
 RESET_TOKEN_HOURS = 1
 
