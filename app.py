@@ -127,7 +127,7 @@ def send_reset_email(to_email, reset_token):
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Reset your Perion Auth password"
-    msg["From"] = f"Perion Auth <{BREVO_SMTP_LOGIN}>"
+    msg["From"] = "Perion Auth <isaiahmichealasuquo@gmail.com>"
     msg["To"] = to_email
     msg.attach(MIMEText(html, "html"))
 
