@@ -44,10 +44,7 @@ LOCKOUT_MINUTES = 15
 SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
-BREVO_SMTP_LOGIN = os.environ.get("BREVO_SMTP_LOGIN", "")
-BREVO_SMTP_PASSWORD = os.environ.get("BREVO_SMTP_PASSWORD", "")
-BREVO_SMTP_HOST = "smtp-relay.brevo.com"
-BREVO_SMTP_PORT = 587
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.perionauth.ryzedns.org")
 RESET_TOKEN_HOURS = 1
 
@@ -104,9 +101,9 @@ def log_login_event(user_id, event):
 
 
 def send_reset_email(to_email, reset_token):
-    """Send a password reset email via Brevo SMTP."""
-    if not BREVO_SMTP_LOGIN or not BREVO_SMTP_PASSWORD:
-        print(f"[DEV] Brevo credentials not set. Reset link: {APP_BASE_URL}/reset-password?token={reset_token}")
+    """Send a password reset email via Brevo HTTP API."""
+    if not BREVO_API_KEY:
+        print(f"[DEV] BREVO_API_KEY not set. Reset link: {APP_BASE_URL}/reset-password?token={reset_token}")
         return False
 
     reset_link = f"{APP_BASE_URL}/reset-password?token={reset_token}"
@@ -125,21 +122,30 @@ def send_reset_email(to_email, reset_token):
     </div>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Reset your Perion Auth password"
-    msg["From"] = "Perion Auth <isaiahmichealasuquo@gmail.com>"
-    msg["To"] = to_email
-    msg.attach(MIMEText(html, "html"))
-
     try:
-        with smtplib.SMTP(BREVO_SMTP_HOST, BREVO_SMTP_PORT, timeout=15) as server:
-            server.starttls()
-            server.login(BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD)
-            server.sendmail("isaiahmichealasuquo@gmail.com", [to_email], msg.as_string())
-        print(f"Reset email sent to {to_email}")
-        return True
+        r = http_requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": BREVO_API_KEY,
+                "content-type": "application/json"
+            },
+            json={
+                "sender": {"name": "Perion Auth", "email": "isaiahmichealasuquo@gmail.com"},
+                "to": [{"email": to_email}],
+                "subject": "Reset your Perion Auth password",
+                "htmlContent": html
+            },
+            timeout=15
+        )
+        if r.status_code in [200, 201, 202]:
+            print(f"Reset email sent to {to_email}")
+            return True
+        else:
+            print(f"Brevo API error {r.status_code}: {r.text}")
+            return False
     except Exception as e:
-        print(f"Brevo SMTP error: {e}")
+        print(f"Brevo API exception: {e}")
         return False
 
 
