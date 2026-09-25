@@ -1243,7 +1243,12 @@ def api_chat():
             api_key=OPENROUTER_API_KEY,
         )
         completion = client.chat.completions.create(
-            model="google/gemini-2.0-flash-exp:free",
+            models=[
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen3-235b-a22b:free",
+    "openrouter/free",
+],
             messages=messages,
             extra_headers={
                 "HTTP-Referer": "https://www.perionauth.ryzedns.org",
