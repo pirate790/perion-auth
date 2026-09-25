@@ -8,7 +8,9 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response, g
 import bcrypt
 import qrcode
-import requests as http_requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from db import get_db, init_db, execute_query
 from crypto_utils import (
     encrypt_secret, decrypt_secret, generate_secret,
@@ -42,7 +44,10 @@ LOCKOUT_MINUTES = 15
 SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+BREVO_SMTP_LOGIN = os.environ.get("BREVO_SMTP_LOGIN", "")
+BREVO_SMTP_PASSWORD = os.environ.get("BREVO_SMTP_PASSWORD", "")
+BREVO_SMTP_HOST = "smtp-relay.brevo.com"
+BREVO_SMTP_PORT = 587
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.perionauth.ryzedns.org")
 RESET_TOKEN_HOURS = 1
 
@@ -99,12 +104,13 @@ def log_login_event(user_id, event):
 
 
 def send_reset_email(to_email, reset_token):
-    """Send a password reset email via Resend API."""
-    if not RESEND_API_KEY:
-        print(f"[DEV] RESEND_API_KEY not set. Reset link: {APP_BASE_URL}/reset-password?token={reset_token}")
+    """Send a password reset email via Brevo SMTP."""
+    if not BREVO_SMTP_LOGIN or not BREVO_SMTP_PASSWORD:
+        print(f"[DEV] Brevo credentials not set. Reset link: {APP_BASE_URL}/reset-password?token={reset_token}")
         return False
 
     reset_link = f"{APP_BASE_URL}/reset-password?token={reset_token}"
+
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#f9f9f9;border-radius:12px;">
       <h2 style="color:#101828;">Reset your Perion Auth password</h2>
@@ -119,27 +125,21 @@ def send_reset_email(to_email, reset_token):
     </div>
     """
 
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Reset your Perion Auth password"
+    msg["From"] = f"Perion Auth <{BREVO_SMTP_LOGIN}>"
+    msg["To"] = to_email
+    msg.attach(MIMEText(html, "html"))
+
     try:
-        r = http_requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "from": "Perion Auth <onboarding@resend.dev>",
-                "to": to_email,
-                "subject": "Reset your Perion Auth password",
-                "html": html
-            },
-            timeout=15
-        )
-        if r.status_code >= 400:
-            print(f"Resend error {r.status_code}: {r.text}")
-            return False
+        with smtplib.SMTP(BREVO_SMTP_HOST, BREVO_SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD)
+            server.sendmail(BREVO_SMTP_LOGIN, [to_email], msg.as_string())
+        print(f"Reset email sent to {to_email}")
         return True
     except Exception as e:
-        print(f"Email send failed: {e}")
+        print(f"Brevo SMTP error: {e}")
         return False
 
 
