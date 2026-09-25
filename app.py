@@ -11,6 +11,7 @@ import qrcode
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import requests as http_requests
 from db import get_db, init_db, execute_query
 from crypto_utils import (
     encrypt_secret, decrypt_secret, generate_secret,
