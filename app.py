@@ -135,7 +135,7 @@ def send_reset_email(to_email, reset_token):
         with smtplib.SMTP(BREVO_SMTP_HOST, BREVO_SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD)
-            server.sendmail(BREVO_SMTP_LOGIN, [to_email], msg.as_string())
+            server.sendmail("isaiahmichealasuquo@gmail.com", [to_email], msg.as_string())
         print(f"Reset email sent to {to_email}")
         return True
     except Exception as e:
