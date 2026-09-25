@@ -3,15 +3,16 @@ import base64
 import io
 import string
 import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import requests as http_requests
+from openai import OpenAI
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response, g
 import bcrypt
 import qrcode
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import requests as http_requests
 from db import get_db, init_db, execute_query
 from crypto_utils import (
     encrypt_secret, decrypt_secret, generate_secret,
@@ -21,7 +22,7 @@ from crypto_utils import (
 app = Flask(__name__)
 
 # ============================================================
-# CORS — allows other apps to call the public API
+# CORS
 # ============================================================
 @app.after_request
 def add_cors_headers(response):
@@ -46,6 +47,7 @@ SESSION_HOURS = 24
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30"))
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.perionauth.ryzedns.org")
 RESET_TOKEN_HOURS = 1
 
@@ -456,7 +458,6 @@ def settings_page(session):
 
 @app.route("/reset-password")
 def reset_password_page():
-    """Serve the single-page app; JS will read ?token= from the URL."""
     return render_template("index.html")
 
 
@@ -645,7 +646,6 @@ def api_forgot_password():
     else:
         conn.close()
 
-    # Always return success to prevent email enumeration
     return jsonify({
         "success": True,
         "message": "If that email is registered, a reset link has been sent."
@@ -684,7 +684,6 @@ def api_reset_password():
     execute_query(c,
         "UPDATE users SET password_hash = %s, reset_token = NULL, reset_token_expiry = NULL WHERE id = %s",
         (new_hash, user["id"]))
-    # Invalidate all existing sessions for security
     execute_query(c, "DELETE FROM sessions WHERE user_id = %s", (user["id"],))
     conn.commit()
     conn.close()
@@ -887,7 +886,7 @@ def api_heartbeat(session):
 
 
 # ============================================================
-# API KEY MANAGEMENT (self-serve)
+# API KEY MANAGEMENT
 # ============================================================
 def generate_api_key():
     prefix = "per_live_"
@@ -1206,6 +1205,56 @@ def api_v1_logout():
 @app.route("/docs")
 def docs_page():
     return render_template("docs.html")
+
+
+# ============================================================
+# AI CHATBOT (OpenRouter)
+# ============================================================
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    history = data.get("history") or []
+
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    if not OPENROUTER_API_KEY:
+        return jsonify({"error": "AI service is not configured."}), 503
+
+    system_prompt = (
+        "You are the helpful AI assistant for Perion Auth, a service that provides "
+        "password and TOTP two-factor authentication. Answer questions about how to "
+        "use the service, API keys, and security. Keep answers short, friendly, and "
+        "in plain English."
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for turn in history[-10:]:
+        messages.append({
+            "role": turn.get("role", "user"),
+            "content": turn.get("content", "")
+        })
+    messages.append({"role": "user", "content": message})
+
+    try:
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_API_KEY,
+        )
+        completion = client.chat.completions.create(
+            model="google/gemini-2.0-flash-exp:free",
+            messages=messages,
+            extra_headers={
+                "HTTP-Referer": "https://www.perionauth.ryzedns.org",
+                "X-Title": "Perion Auth",
+            },
+        )
+        reply = completion.choices[0].message.content
+        return jsonify({"success": True, "reply": reply})
+    except Exception as e:
+        print(f"OpenRouter error: {e}")
+        return jsonify({"error": "The AI is unavailable right now. Please try again later."}), 502
 
 
 # ============================================================
