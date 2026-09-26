@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Authorize {{ client.name }} — Perion Auth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --glass: rgba(255,255,255,0.08);
+    --glass-border: rgba(255,255,255,0.16);
+    --text: #eef2f7;
+    --text-dim: rgba(238,242,247,0.65);
+    --accent: #6ea8ff;
+    --warm: rgba(255,224,160,0.9);
+    --green: #34c759;
+    --red: #ff7b7b;
+    --purple: #8b7cff;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', system-ui, -apple-system, sans-serif; }
+  body{
+    min-height:100vh;
+    background-color:#141c2b;
+    background-image:
+      linear-gradient(335deg, rgba(255,255,255,0.045) 23px, transparent 23px),
+      linear-gradient(155deg, rgba(255,255,255,0.045) 23px, transparent 23px),
+      linear-gradient(335deg, rgba(0,0,0,0.35) 26px, transparent 26px),
+      linear-gradient(155deg, rgba(0,0,0,0.35) 26px, transparent 26px);
+    background-size:58px 58px;
+    background-position:0px 2px, 4px 35px, 29px 31px, 34px 6px;
+    color:var(--text);
+    display:flex; align-items:center; justify-content:center;
+    padding:40px 20px; min-height:100vh;
+  }
+  .beam{ position:fixed; top:76px; left:50%; transform:translateX(-50%); width:560px; height:calc(100vh - 76px);
+    background:radial-gradient(ellipse 55% 70% at 50% 0%, rgba(255,224,160,0.30), rgba(255,224,160,0.07) 45%, transparent 72%);
+    clip-path:polygon(42% 0, 58% 0, 100% 100%, 0 100%); filter:blur(3px); pointer-events:none; z-index:1; }
+  .floor-glow{ position:fixed; bottom:-140px; left:50%; transform:translateX(-50%); width:900px; height:320px; border-radius:50%;
+    background:radial-gradient(ellipse at center, rgba(255,214,130,0.15), transparent 65%); pointer-events:none; z-index:1; }
+  .lamp-wrap{ position:fixed; top:0; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; pointer-events:none; z-index:2; }
+  .cord{ width:5px; height:46px; background:linear-gradient(#0a0f18,#232c3d); border-radius:3px; }
+  .shade{ width:120px; height:34px; background:linear-gradient(180deg,#3b4557,#1d2534 70%);
+    clip-path:polygon(18% 0, 82% 0, 100% 100%, 0 100%); border-bottom:3px solid rgba(255,220,150,0.9); box-shadow:0 6px 18px rgba(0,0,0,0.6); }
+  .bulb{ width:26px; height:26px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #fff8e0, #ffd97a 55%, #e8a93d);
+    box-shadow:0 0 30px 10px rgba(255,214,130,0.7), 0 0 80px 40px rgba(255,205,110,0.3); margin-top:-6px; }
+  .vignette{ position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 45%, rgba(5,8,14,0.75) 100%); }
+
+  .card{
+    position:relative; z-index:3; max-width:460px; width:100%;
+    background:var(--glass); border:1px solid var(--glass-border); border-radius:22px;
+    padding:36px 32px 28px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12);
+    animation:pop .5s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes pop{ from{ opacity:0; transform:translateY(20px) scale(.97);} to{ opacity:1; transform:none;} }
+
+  .brand{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:26px; }
+  .brand-badge{ width:38px; height:38px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#6ea8ff,#8f7bff);
+    box-shadow:0 6px 18px rgba(110,168,255,0.45);
+    font-weight:700; font-size:19px; color:#0c1322; }
+  .brand-name{ font-weight:600; font-size:17px; letter-spacing:.4px; color:var(--text-dim); }
+
+  h1{ text-align:center; font-size:22px; font-weight:600; margin-bottom:8px; line-height:1.3; }
+  h1 .app{ color:var(--accent); }
+  .subtitle{ text-align:center; font-size:13.5px; color:var(--text-dim); margin-bottom:28px; line-height:1.55; }
+
+  .user-badge{
+    display:flex; align-items:center; gap:12px;
+    background:rgba(0,0,0,0.3); border-radius:14px; padding:12px 16px;
+    margin-bottom:22px;
+  }
+  .user-avatar{ width:40px; height:40px; border-radius:50%;
+    background:linear-gradient(135deg,#6ea8ff,#8f7bff); color:#0c1322;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:16px; }
+  .user-info{ flex:1; min-width:0; }
+  .user-name{ font-size:14px; font-weight:600; }
+  .user-email{ font-size:12px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .signed-in-as{ font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.6px; margin-bottom:2px; }
+
+  .scopes-title{ font-size:12px; font-weight:600; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+
+  .scope-list{ list-style:none; margin-bottom:26px; }
+  .scope-list li{
+    display:flex; align-items:flex-start; gap:12px;
+    padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.07);
+    font-size:13.5px; color:#d5dcec;
+  }
+  .scope-list li:last-child{ border-bottom:none; }
+  .scope-icon{
+    width:30px; height:30px; min-width:30px; border-radius:9px;
+    background:rgba(110,168,255,0.12); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  .scope-text{ flex:1; line-height:1.5; }
+  .scope-text strong{ color:var(--text); display:block; font-weight:600; margin-bottom:1px; font-size:13.5px; }
+  .scope-text small{ color:var(--text-dim); font-size:12px; }
+
+  .actions{ display:flex; gap:10px; margin-top:6px; }
+  .btn{
+    flex:1; padding:14px; border:none; border-radius:999px;
+    font-size:14.5px; font-weight:600; cursor:pointer; font-family:inherit;
+    transition:transform .15s, background .2s, box-shadow .2s;
+  }
+  .btn:hover{ transform:translateY(-2px); }
+  .btn-allow{ background:#25D366; color:#0f0f0f; box-shadow:0 8px 24px rgba(37,211,102,0.3); }
+  .btn-allow:hover{ background:#22c55e; }
+  .btn-deny{ background:rgba(255,255,255,0.08); color:var(--text); border:1px solid var(--glass-border); }
+  .btn-deny:hover{ background:rgba(255,255,255,0.14); }
+
+  .footer-note{
+    text-align:center; font-size:11.5px; color:var(--text-dim);
+    margin-top:22px; line-height:1.6;
+  }
+  .footer-note a{ color:var(--accent); text-decoration:none; }
+
+  .client-info{
+    text-align:center; font-size:12px; color:var(--text-dim);
+    margin-bottom:24px; padding-bottom:20px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .client-info strong{ color:var(--text); }
+
+  @media (max-width:480px){
+    .card{ padding:28px 22px 22px; }
+    .beam{ width:420px; }
+  }
+</style>
+</head>
+<body>
+  <div class="beam"></div>
+  <div class="floor-glow"></div>
+  <div class="lamp-wrap"><div class="cord"></div><div class="shade"></div><div class="bulb"></div></div>
+  <div class="vignette"></div>
+
+  <div class="card">
+    <div class="brand">
+      <div class="brand-badge">P</div>
+      <div class="brand-name">Perion Auth</div>
+    </div>
+
+    <h1><span class="app">{{ client.name }}</span> wants to access your account</h1>
+    <p class="subtitle">Review the permissions below before allowing access.</p>
+
+    <div class="user-badge">
+      <div class="user-avatar">{{ (user.display_name or user.email)[0]|upper }}</div>
+      <div class="user-info">
+        <div class="signed-in-as">Signed in as</div>
+        <div class="user-name">{{ user.display_name or user.email.split('@')[0] }}</div>
+        <div class="user-email">{{ user.email }}</div>
+      </div>
+    </div>
+
+    <div class="client-info">
+      <strong>{{ client.name }}</strong>{% if client.website_url %} · <a href="{{ client.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent); text-decoration:none;">Visit site</a>{% endif %}
+    </div>
+
+    <div class="scopes-title">This app will be able to:</div>
+    <ul class="scope-list">
+      {% for s in scopes %}
+        {% if s == 'profile' %}
+          <li>
+            <span class="scope-icon">👤</span>
+            <span class="scope-text">
+              <strong>View your profile</strong>
+              <small>Your display name and account info</small>
+            </span>
+          </li>
+        {% elif s == 'email' %}
+          <li>
+            <span class="scope-icon">✉️</span>
+            <span class="scope-text">
+              <strong>See your email address</strong>
+              <small>{{ user.email }}</small>
+            </span>
+          </li>
+        {% else %}
+          <li>
+            <span class="scope-icon">🔑</span>
+            <span class="scope-text">
+              <strong>{{ s }}</strong>
+              <small>Custom permission requested by this app</small>
+            </span>
+          </li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+
+    <form method="POST" action="/oauth/authorize/approve" class="actions">
+      <input type="hidden" name="client_id" value="{{ client.client_id }}" />
+      <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}" />
+      <input type="hidden" name="state" value="{{ state }}" />
+      <input type="hidden" name="scope" value="{{ scope }}" />
+      <button type="submit" class="btn btn-allow">Allow access</button>
+    </form>
+
+    <form method="POST" action="/oauth/authorize/deny" class="actions" style="margin-top:10px;">
+      <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}" />
+      <input type="hidden" name="state" value="{{ state }}" />
+      <button type="submit" class="btn btn-deny">Cancel</button>
+    </form>
+
+    <p class="footer-note">
+      You'll be redirected to <strong style="color:var(--text);">{{ client.name }}</strong> after allowing.<br>
+      You can revoke access anytime from <a href="/settings">Settings → Connected Apps</a>.
+    </p>
+  </div>
+</body>
+</html>

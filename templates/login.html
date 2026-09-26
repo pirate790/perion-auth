@@ -800,12 +800,16 @@
   });
 
   function handleLoginSuccess(email, usedBackup){
-    if ($('#remember-me')?.checked) {
-      localStorage.setItem('perion_auth_session', JSON.stringify({ email }));
-    }
-    toast('Signed in — redirecting...', 'success');
-    setTimeout(() => { window.location.href = '/profile'; }, 600);
+  if ($('#remember-me')?.checked) {
+    localStorage.setItem('perion_auth_session', JSON.stringify({ email }));
   }
+  // Support ?next=... for OAuth authorize redirects
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  const dest = (next && next.startsWith('/')) ? next : '/profile';
+  toast('Signed in — redirecting...', 'success');
+  setTimeout(() => { window.location.href = dest; }, 600);
+}
 
   function openWelcome(title, text){
     $('#welcome-title').textContent = title;

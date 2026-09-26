@@ -10,6 +10,7 @@ import requests as http_requests
 from openai import OpenAI
 from functools import wraps
 from datetime import datetime, timedelta
+from urllib.parse import quote
 from flask import Flask, request, jsonify, render_template, redirect, url_for, make_response, g
 import bcrypt
 import qrcode
@@ -1094,7 +1095,128 @@ def _user_owns_oauth_client(user_id, client_pk):
     if not row:
         return False
     return row["owner_user_id"] == user_id
+# ============================================================
+# OAUTH 2.0 AUTHORIZE FLOW
+# ============================================================
+@app.route("/oauth/authorize", methods=["GET"])
+def oauth_authorize():
+    """First step of the OAuth flow. The client app sends users here."""
+    client_id = (request.args.get("client_id") or "").strip()
+    redirect_uri = (request.args.get("redirect_uri") or "").strip()
+    response_type = (request.args.get("response_type") or "code").strip()
+    state = (request.args.get("state") or "").strip()
+    scope = (request.args.get("scope") or "profile email").strip()
 
+    if not client_id:
+        return "Missing required parameter: client_id", 400
+    if not redirect_uri:
+        return "Missing required parameter: redirect_uri", 400
+    if response_type != "code":
+        return "Only response_type=code is supported", 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT * FROM oauth_clients WHERE client_id = %s AND is_active = 1", (client_id,))
+    client = c.fetchone()
+    conn.close()
+
+    if not client:
+        return "Unknown or inactive OAuth client", 400
+
+    # Strictly verify the redirect URI matches one registered
+    registered = [u.strip() for u in (client["redirect_uris"] or "").split("\n") if u.strip()]
+    if redirect_uri not in registered:
+        return "Invalid redirect_uri — does not match any URI registered for this app", 400
+
+    # Require login
+    token = get_session_token()
+    session = get_session(token)
+
+    if not session:
+        # Bounce through login, then come back here
+        next_url = "/oauth/authorize?" + request.query_string.decode()
+        return redirect(f"/login?next={quote(next_url)}")
+
+    # Get the user info to show on the consent screen
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT id, email, display_name FROM users WHERE id = %s", (session["user_id"],))
+    user = dict(c.fetchone())
+    conn.close()
+
+    scopes = scope.split() if scope else ["profile"]
+
+    return render_template(
+        "consent.html",
+        client=dict(client),
+        user=user,
+        redirect_uri=redirect_uri,
+        state=state,
+        scope=scope,
+        scopes=scopes,
+    )
+
+
+@app.route("/oauth/authorize/approve", methods=["POST"])
+def oauth_authorize_approve():
+    """User clicked Allow on the consent screen. Issue an authorization code."""
+    client_id = (request.form.get("client_id") or "").strip()
+    redirect_uri = (request.form.get("redirect_uri") or "").strip()
+    state = (request.form.get("state") or "").strip()
+    scope = (request.form.get("scope") or "profile email").strip()
+
+    token = get_session_token()
+    session = get_session(token)
+    if not session:
+        return redirect("/login")
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT * FROM oauth_clients WHERE client_id = %s AND is_active = 1", (client_id,))
+    client = c.fetchone()
+    if not client:
+        conn.close()
+        return "Unknown client", 400
+
+    registered = [u.strip() for u in (client["redirect_uris"] or "").split("\n") if u.strip()]
+    if redirect_uri not in registered:
+        conn.close()
+        return "Invalid redirect_uri", 400
+
+    # Generate the authorization code (valid for 10 minutes)
+    code = secrets.token_urlsafe(32)
+    code_expires = (_now() + timedelta(minutes=10)).isoformat()
+
+    execute_query(c, """
+        INSERT INTO oauth_authorizations (code, code_expires_at, client_id, user_id, scope)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (code, code_expires, client_id, session["user_id"], scope))
+    conn.commit()
+    conn.close()
+
+    log_login_event(session["user_id"], f"Authorized OAuth app: {client['name']}")
+
+    sep = "&" if "?" in redirect_uri else "?"
+    url = f"{redirect_uri}{sep}code={code}"
+    if state:
+        url += f"&state={quote(state)}"
+    return redirect(url)
+
+
+@app.route("/oauth/authorize/deny", methods=["POST"])
+def oauth_authorize_deny():
+    """User clicked Cancel. Redirect back with an error."""
+    redirect_uri = (request.form.get("redirect_uri") or "").strip()
+    state = (request.form.get("state") or "").strip()
+
+    if not redirect_uri:
+        return "Authorization cancelled", 200
+
+    sep = "&" if "?" in redirect_uri else "?"
+    url = f"{redirect_uri}{sep}error=access_denied"
+    if state:
+        url += f"&state={quote(state)}"
+    return redirect(url)
 # ============================================================
 # PUBLIC API v1
 # ============================================================
