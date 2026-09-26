@@ -1218,6 +1218,182 @@ def oauth_authorize_deny():
         url += f"&state={quote(state)}"
     return redirect(url)
 # ============================================================
+# OAUTH 2.0 TOKEN + USERINFO
+# ============================================================
+@app.route("/oauth/token", methods=["POST"])
+def oauth_token():
+    """Exchange an authorization code (or refresh token) for an access token."""
+    auth_header = request.headers.get("Authorization", "")
+    client_id = ""
+    client_secret = ""
+
+    if auth_header.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth_header[6:]).decode()
+            client_id, client_secret = decoded.split(":", 1)
+        except Exception:
+            return jsonify({"error": "invalid_client"}), 401
+    else:
+        data = request.get_json(silent=True) or request.form
+        client_id = (data.get("client_id") or "").strip()
+        client_secret = (data.get("client_secret") or "").strip()
+
+    data = request.get_json(silent=True) or request.form
+    grant_type = (data.get("grant_type") or "").strip()
+    code = (data.get("code") or "").strip()
+    refresh_token = (data.get("refresh_token") or "").strip()
+
+    if not client_id or not client_secret:
+        return jsonify({"error": "invalid_client", "error_description": "Missing client credentials"}), 401
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT * FROM oauth_clients WHERE client_id = %s AND is_active = 1", (client_id,))
+    client = c.fetchone()
+    if not client:
+        conn.close()
+        return jsonify({"error": "invalid_client"}), 401
+
+    if not bcrypt.checkpw(client_secret.encode(), client["client_secret_hash"].encode()):
+        conn.close()
+        return jsonify({"error": "invalid_client", "error_description": "Bad client secret"}), 401
+
+    if grant_type == "authorization_code":
+        if not code:
+            conn.close()
+            return jsonify({"error": "invalid_request", "error_description": "Missing code"}), 400
+
+        execute_query(c, "SELECT * FROM oauth_authorizations WHERE code = %s AND revoked = 0", (code,))
+        auth = c.fetchone()
+        if not auth:
+            conn.close()
+            return jsonify({"error": "invalid_grant", "error_description": "Unknown or already-used code"}), 400
+
+        if auth["client_id"] != client_id:
+            conn.close()
+            return jsonify({"error": "invalid_grant", "error_description": "Code was issued to another client"}), 400
+
+        expiry = _parse(auth["code_expires_at"])
+        if not expiry or _now() > expiry:
+            execute_query(c, "UPDATE oauth_authorizations SET revoked = 1 WHERE id = %s", (auth["id"],))
+            conn.commit()
+            conn.close()
+            return jsonify({"error": "invalid_grant", "error_description": "Code has expired"}), 400
+
+        access_token = "per_at_" + secrets.token_urlsafe(40)
+        new_refresh = "per_rt_" + secrets.token_urlsafe(40)
+        token_expires = (_now() + timedelta(hours=1)).isoformat()
+
+        execute_query(c, """
+            UPDATE oauth_authorizations
+            SET code = NULL, access_token = %s, refresh_token = %s, token_expires_at = %s
+            WHERE id = %s
+        """, (access_token, new_refresh, token_expires, auth["id"]))
+        execute_query(c, "UPDATE oauth_clients SET last_used = %s WHERE id = %s",
+                      (_iso(), client["id"]))
+        conn.commit()
+        conn.close()
+
+        log_login_event(auth["user_id"], f"OAuth token issued to {client['name']}")
+
+        return jsonify({
+            "access_token": access_token,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": new_refresh,
+            "scope": auth["scope"] or "profile email",
+        })
+
+    elif grant_type == "refresh_token":
+        if not refresh_token:
+            conn.close()
+            return jsonify({"error": "invalid_request", "error_description": "Missing refresh_token"}), 400
+
+        execute_query(c, "SELECT * FROM oauth_authorizations WHERE refresh_token = %s AND revoked = 0", (refresh_token,))
+        auth = c.fetchone()
+        if not auth:
+            conn.close()
+            return jsonify({"error": "invalid_grant", "error_description": "Unknown refresh token"}), 400
+
+        if auth["client_id"] != client_id:
+            conn.close()
+            return jsonify({"error": "invalid_grant"}), 400
+
+        new_access = "per_at_" + secrets.token_urlsafe(40)
+        new_refresh = "per_rt_" + secrets.token_urlsafe(40)
+        token_expires = (_now() + timedelta(hours=1)).isoformat()
+
+        execute_query(c, """
+            UPDATE oauth_authorizations
+            SET access_token = %s, refresh_token = %s, token_expires_at = %s
+            WHERE id = %s
+        """, (new_access, new_refresh, token_expires, auth["id"]))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "access_token": new_access,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": new_refresh,
+            "scope": auth["scope"] or "profile email",
+        })
+
+    else:
+        conn.close()
+        return jsonify({"error": "unsupported_grant_type", "error_description": "Use authorization_code or refresh_token"}), 400
+
+
+@app.route("/oauth/userinfo", methods=["GET"])
+def oauth_userinfo():
+    """Return the authenticated user's profile using a Bearer access token."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "invalid_token", "error_description": "Missing Bearer token"}), 401
+
+    access_token = auth_header[7:].strip()
+    if not access_token:
+        return jsonify({"error": "invalid_token"}), 401
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT * FROM oauth_authorizations WHERE access_token = %s AND revoked = 0",
+                  (access_token,))
+    auth = c.fetchone()
+
+    if not auth:
+        conn.close()
+        return jsonify({"error": "invalid_token", "error_description": "Unknown token"}), 401
+
+    expiry = _parse(auth["token_expires_at"])
+    if not expiry or _now() > expiry:
+        conn.close()
+        return jsonify({"error": "invalid_token", "error_description": "Token has expired"}), 401
+
+    execute_query(c, "SELECT id, email, display_name, totp_enabled FROM users WHERE id = %s",
+                  (auth["user_id"],))
+    user = c.fetchone()
+
+    execute_query(c, "UPDATE oauth_clients SET last_used = %s WHERE client_id = %s",
+                  (_iso(), auth["client_id"]))
+    conn.commit()
+    conn.close()
+
+    if not user:
+        return jsonify({"error": "user_not_found"}), 404
+
+    scopes = (auth["scope"] or "").split()
+    result = {"sub": str(user["id"])}
+    if "profile" in scopes:
+        result["name"] = user["display_name"] or user["email"].split("@")[0]
+    if "email" in scopes:
+        result["email"] = user["email"]
+        result["email_verified"] = True
+    if "2fa_status" in scopes:
+        result["two_factor_enabled"] = bool(user["totp_enabled"])
+
+    return jsonify(result)
+# ============================================================
 # PUBLIC API v1
 # ============================================================
 def require_api_key(view):
