@@ -18,6 +18,7 @@
     --warm: rgba(255,224,160,0.9);
     --green: #34c759;
     --red: #ff7b7b;
+    --purple: #8b7cff;
   }
   *{ margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', system-ui, -apple-system, sans-serif; }
   body{
@@ -48,7 +49,7 @@
   .vignette{ position:fixed; inset:0; z-index:1; pointer-events:none;
     background:radial-gradient(ellipse at center, transparent 45%, rgba(5,8,14,0.75) 100%); }
 
-  .page{ position:relative; z-index:3; max-width:640px; margin:0 auto; padding:130px 20px 40px; }
+  .page{ position:relative; z-index:3; max-width:720px; margin:0 auto; padding:130px 20px 40px; }
   .topbar{ display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; }
   .brand{ display:flex; align-items:center; gap:10px; }
   .brand-badge{ width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
@@ -61,48 +62,80 @@
   .nav-link:hover{ color:var(--text); background:rgba(255,255,255,0.06); }
   .nav-link.active{ color:var(--text); background:rgba(110,168,255,0.15); border-color:rgba(110,168,255,0.3); }
 
-  h1{ font-size:24px; font-weight:600; margin:24px 0 4px; }
-  .subtitle{ font-size:13px; color:var(--text-dim); margin-bottom:22px; }
+  h1{ font-size:26px; font-weight:600; margin:26px 0 6px; }
+  .subtitle{ font-size:13.5px; color:var(--text-dim); margin-bottom:26px; }
 
-  .card{ background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:20px;
+  .section-block{ margin-top:40px; }
+  .section-heading{
+    font-size:13px; font-weight:600; letter-spacing:1.4px; text-transform:uppercase;
+    color:var(--text-dim); margin:0 6px 12px;
+  }
+
+  .card{ background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:22px;
     backdrop-filter:blur(16px); box-shadow:0 24px 60px rgba(0,0,0,0.5); margin-bottom:14px; }
 
   .btn{ padding:12px 22px; border:none; border-radius:999px; background:#f4f7fc; color:#101828;
-    font-size:14px; font-weight:600; cursor:pointer; transition:transform .15s; }
+    font-size:14px; font-weight:600; cursor:pointer; transition:transform .15s; font-family:inherit; }
   .btn:hover{ transform:translateY(-2px); }
   .btn.ghost{ background:rgba(255,255,255,0.08); color:var(--text); border:1px solid var(--glass-border); }
+  .btn.ghost:hover{ background:rgba(255,255,255,0.15); }
   .btn.danger{ background:rgba(255,123,123,0.12); color:var(--red); border:1px solid rgba(255,123,123,0.3); }
   .btn.small{ padding:7px 12px; font-size:12px; }
+  .btn.purple{ background:linear-gradient(135deg,#8b7cff,#6ea8ff); color:#fff; }
 
-  .key-card{ background:rgba(0,0,0,0.25); border-radius:12px; padding:14px 16px; margin-top:12px;
+  .key-card{ background:rgba(0,0,0,0.25); border-radius:12px; padding:16px; margin-top:12px;
     border:1px solid rgba(255,255,255,0.08); }
-  .key-name{ font-weight:600; font-size:14.5px; margin-bottom:4px; }
-  .key-owner{ font-size:12px; color:var(--text-dim); margin-bottom:10px; }
+  .key-card.oauth-card{ border-left:3px solid var(--purple); }
+  .key-name{ font-weight:600; font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .key-owner{ font-size:12px; color:var(--text-dim); margin-bottom:12px; }
   .key-value{ font-family:'Courier New', monospace; font-size:12.5px;
     background:rgba(0,0,0,0.35); padding:9px 12px; border-radius:8px;
     color:var(--warm); word-break:break-all; user-select:all; margin-bottom:10px; }
-  .key-meta{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text-dim); margin-bottom:10px; }
+  .key-value.purple{ color:var(--purple); }
+  .key-meta{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text-dim); margin-bottom:12px; }
   .key-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   .badge{ font-size:10.5px; padding:3px 9px; border-radius:999px; font-weight:600; letter-spacing:.4px; }
   .badge.active{ background:rgba(52,199,89,0.15); color:var(--green); border:1px solid rgba(52,199,89,0.35); }
   .badge.revoked{ background:rgba(255,123,123,0.15); color:var(--red); border:1px solid rgba(255,123,123,0.35); }
-  .badge.admin{ background:rgba(110,168,255,0.15); color:var(--accent); border:1px solid rgba(110,168,255,0.35);
-    margin-left:6px; }
+  .badge.plan{ background:rgba(139,124,255,0.15); color:var(--purple); border:1px solid rgba(139,124,255,0.35); }
+  .badge.admin{ background:rgba(110,168,255,0.15); color:var(--accent); border:1px solid rgba(110,168,255,0.35); }
 
-  .m-label{ font-size:12.5px; color:var(--text-dim); margin:12px 0 6px; display:block; }
-  .m-input{ width:100%; padding:12px 16px; background:rgba(255,255,255,0.07);
+  .redirect-list{ font-size:12px; color:var(--text-dim); margin-bottom:10px; }
+  .redirect-list div{ padding:3px 0; font-family:'Courier New', monospace; color:#9fc4ff; }
+
+  .m-label{ font-size:12.5px; color:var(--text-dim); margin:14px 0 6px; display:block; }
+  .m-input, .m-textarea{ width:100%; padding:12px 16px; background:rgba(255,255,255,0.07);
     border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:var(--text);
-    font-size:14px; outline:none; }
-  .m-input:focus{ border-color:var(--accent); }
+    font-size:14px; outline:none; font-family:inherit; }
+  .m-input:focus, .m-textarea:focus{ border-color:var(--accent); }
+  .m-textarea{ min-height:90px; resize:vertical; font-family:'Courier New', monospace; font-size:13px; }
+  .m-hint{ font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
+  .m-error{ display:none; font-size:12.5px; color:var(--red); background:rgba(255,123,123,0.1);
+    border:1px solid rgba(255,123,123,0.3); border-radius:10px; padding:9px 13px; margin-top:14px; }
+  .m-error.show{ display:block; }
 
   .overlay{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
-    background:rgba(8,12,20,0.7); backdrop-filter:blur(8px); padding:20px; }
+    background:rgba(8,12,20,0.75); backdrop-filter:blur(8px); padding:20px; overflow-y:auto; }
   .overlay.show{ display:flex; }
-  .modal{ width:100%; max-width:440px; background:rgba(22,30,46,0.95); border:1px solid var(--glass-border);
-    border-radius:20px; padding:26px 24px; box-shadow:0 30px 80px rgba(0,0,0,0.6); }
+  .modal{ width:100%; max-width:520px; background:rgba(22,30,46,0.98); border:1px solid var(--glass-border);
+    border-radius:20px; padding:28px 26px; box-shadow:0 30px 80px rgba(0,0,0,0.7); max-height:88vh; overflow-y:auto; margin:auto; }
+  .modal h3{ font-size:19px; margin-bottom:6px; }
+  .modal .modal-sub{ font-size:13px; color:var(--text-dim); margin-bottom:8px; line-height:1.5; }
+
+  .secret-reveal{
+    background:rgba(139,124,255,0.1); border:1px solid rgba(139,124,255,0.35);
+    border-radius:12px; padding:16px; margin:16px 0;
+  }
+  .secret-reveal .warn{ font-size:12px; color:var(--warm); margin-bottom:10px; font-weight:600; }
+  .secret-reveal .val{ font-family:'Courier New', monospace; font-size:13px;
+    color:var(--purple); word-break:break-all; user-select:all; padding:10px;
+    background:rgba(0,0,0,0.4); border-radius:8px; }
+
+  .empty{ text-align:center; padding:36px 20px; color:var(--text-dim); font-size:13.5px; }
+  .empty strong{ color:var(--text); display:block; margin-bottom:6px; font-size:14.5px; }
 
   .toast{ position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px);
-    background:rgba(16,24,40,0.92); border:1px solid var(--glass-border); color:var(--text);
+    background:rgba(16,24,40,0.95); border:1px solid var(--glass-border); color:var(--text);
     padding:12px 22px; border-radius:999px; font-size:13.5px; opacity:0;
     transition:all .35s; z-index:80; pointer-events:none; display:flex; gap:9px; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -110,7 +143,10 @@
   .toast.success .dot{ background:var(--green); }
   .toast.error .dot{ background:var(--red); }
 
-  .empty{ text-align:center; padding:40px 20px; color:var(--text-dim); font-size:14px; }
+  @media (max-width:600px){
+    .page{ padding-top:120px; }
+    .nav-link{ padding:7px 10px; font-size:12px; }
+  }
 </style>
 </head>
 <body>
@@ -135,87 +171,195 @@
       </div>
     </div>
 
-    <h1>
-      {% if is_admin %}All Developer API Keys{% else %}Your API Keys{% endif %}
-      {% if is_admin %}<span class="badge admin">ADMIN VIEW</span>{% endif %}
-    </h1>
-    <p class="subtitle">
-      {% if is_admin %}
-        Showing keys from all users. You can see who owns what.
-      {% else %}
-        Generate API keys to use Perion Auth in your own apps. You can only see your own keys.
-      {% endif %}
-    </p>
+    <h1>Developers</h1>
+    <p class="subtitle">Manage API keys and OAuth applications</p>
 
-    <div class="card">
-      <button class="btn" id="new-key-btn">+ Generate New API Key</button>
-      <p style="font-size:12px; color:var(--text-dim); margin-top:12px; line-height:1.6;">
-        Read the <a href="/docs" style="color:var(--accent);">API documentation</a> to learn how to use your key.
-        Keep it secret — treat it like a password.
-      </p>
-    </div>
+    <!-- ============ OAUTH APPLICATIONS ============ -->
+    <div class="section-block">
+      <div class="section-heading">
+        OAuth Applications
+        {% if is_admin %}<span class="badge admin">ADMIN VIEW</span>{% endif %}
+      </div>
 
-    <h2 style="font-size:14px; color:var(--text-dim); margin:26px 6px 10px; text-transform:uppercase; letter-spacing:1.2px;">
-      {% if is_admin %}All Keys{% else %}Your Keys{% endif %}
-    </h2>
+      <div class="card">
+        <p style="font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:14px;">
+          Register your app to let users <strong style="color:var(--text);">Login with Perion Auth</strong>.
+          You'll get a <code style="color:var(--purple);">client_id</code> and <code style="color:var(--purple);">client_secret</code>.
+        </p>
+        <button class="btn purple" id="new-oauth-btn">+ Register New OAuth App</button>
+      </div>
 
-    <div id="keys-list">
-      {% if keys %}
-        {% for k in keys %}
-          <div class="key-card" data-id="{{ k.id }}">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-              <div>
-                <div class="key-name">{{ k.name }}</div>
-                <div class="key-owner">
-                  {% if is_admin %}
-                    Owner: {{ k.owner_user_email or k.owner_email or 'Unknown' }}
-                  {% else %}
-                    {{ k.owner_email or '' }}
-                  {% endif %}
+      <div id="oauth-list">
+        {% if oauth_clients %}
+          {% for o in oauth_clients %}
+            <div class="key-card oauth-card" data-id="{{ o.id }}">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
+                <div>
+                  <div class="key-name">
+                    {{ o.name }}
+                    <span class="badge plan">{{ o.plan|upper }}</span>
+                  </div>
+                  <div class="key-owner">
+                    {% if is_admin %}
+                      Owner: {{ o.owner_user_email or o.owner_email or 'Unknown' }}
+                    {% else %}
+                      {{ o.owner_email or '' }}
+                    {% endif %}
+                  </div>
                 </div>
               </div>
-              <span class="badge {% if k.is_active %}active{% else %}revoked{% endif %}">
-                {% if k.is_active %}ACTIVE{% else %}REVOKED{% endif %}
-              </span>
+
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.6px;">Client ID</div>
+              <div class="key-value purple">{{ o.client_id }}</div>
+
+              <div style="font-size:11px; color:var(--text-dim); margin:12px 0 6px; text-transform:uppercase; letter-spacing:.6px;">Redirect URIs</div>
+              <div class="redirect-list">
+                {% for uri in o.redirect_uris_list %}<div>{{ uri }}</div>{% endfor %}
+              </div>
+
+              <div class="key-meta">
+                <span>Created: {{ o.created_str }}</span>
+                <span>Last used: {{ o.last_used_str }}</span>
+                <span>Users created: {{ o.users_created }}</span>
+              </div>
+
+              <div class="key-actions">
+                <button class="btn ghost small copy-client-id" data-value="{{ o.client_id }}">Copy Client ID</button>
+                <button class="btn ghost small rotate-btn" data-id="{{ o.id }}">Rotate Secret</button>
+                <button class="btn danger small delete-oauth-btn" data-id="{{ o.id }}">Delete</button>
+              </div>
             </div>
-            <div class="key-value">{{ k.key }}</div>
-            <div class="key-meta">
-              <span>Created: {{ k.created_str }}</span>
-              <span>Last used: {{ k.last_used_str }}</span>
-              <span>Requests: {{ k.request_count }}</span>
-            </div>
-            <div class="key-actions">
-              <button class="btn ghost small copy-btn" data-key="{{ k.key }}">Copy</button>
-              {% if k.is_active %}
-                <button class="btn danger small revoke-btn" data-id="{{ k.id }}">Revoke</button>
-              {% else %}
-                <button class="btn ghost small activate-btn" data-id="{{ k.id }}">Activate</button>
-              {% endif %}
-              <button class="btn danger small delete-btn" data-id="{{ k.id }}">Delete</button>
-            </div>
+          {% endfor %}
+        {% else %}
+          <div class="card empty">
+            <strong>No OAuth apps yet</strong>
+            Register your first app to start using "Login with Perion Auth"
           </div>
-        {% endfor %}
-      {% else %}
-        <div class="card empty">
-          {% if is_admin %}
-            No API keys exist yet.
-          {% else %}
-            You haven't created any API keys yet. Click <strong>Generate New API Key</strong> above to get started.
-          {% endif %}
-        </div>
-      {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ============ API KEYS ============ -->
+    <div class="section-block">
+      <div class="section-heading">
+        API Keys
+        {% if is_admin %}<span class="badge admin">ADMIN VIEW</span>{% endif %}
+      </div>
+
+      <div class="card">
+        <p style="font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:14px;">
+          API keys let you call the public API at <code style="color:var(--accent);">/api/v1/*</code> from your backend.
+        </p>
+        <button class="btn" id="new-key-btn">+ Generate New API Key</button>
+      </div>
+
+      <div id="keys-list">
+        {% if keys %}
+          {% for k in keys %}
+            <div class="key-card" data-id="{{ k.id }}">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                <div>
+                  <div class="key-name">{{ k.name }}</div>
+                  <div class="key-owner">
+                    {% if is_admin %}
+                      Owner: {{ k.owner_user_email or k.owner_email or 'Unknown' }}
+                    {% else %}
+                      {{ k.owner_email or '' }}
+                    {% endif %}
+                  </div>
+                </div>
+                <span class="badge {% if k.is_active %}active{% else %}revoked{% endif %}">
+                  {% if k.is_active %}ACTIVE{% else %}REVOKED{% endif %}
+                </span>
+              </div>
+              <div class="key-value">{{ k.key }}</div>
+              <div class="key-meta">
+                <span>Created: {{ k.created_str }}</span>
+                <span>Last used: {{ k.last_used_str }}</span>
+                <span>Requests: {{ k.request_count }}</span>
+              </div>
+              <div class="key-actions">
+                <button class="btn ghost small copy-btn" data-key="{{ k.key }}">Copy</button>
+                {% if k.is_active %}
+                  <button class="btn danger small revoke-btn" data-id="{{ k.id }}">Revoke</button>
+                {% else %}
+                  <button class="btn ghost small activate-btn" data-id="{{ k.id }}">Activate</button>
+                {% endif %}
+                <button class="btn danger small delete-btn" data-id="{{ k.id }}">Delete</button>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="card empty">
+            <strong>No API keys yet</strong>
+            Generate one to start calling the public API
+          </div>
+        {% endif %}
+      </div>
     </div>
 
   </div>
 
-  <div class="overlay" id="overlay">
+  <!-- ============ NEW OAUTH APP MODAL ============ -->
+  <div class="overlay" id="oauth-overlay">
     <div class="modal">
-      <h3 style="margin-bottom:14px;" id="modal-title">New API Key</h3>
+      <h3>Register OAuth Application</h3>
+      <p class="modal-sub">Give your app a name and add at least one redirect URI where users will land after logging in.</p>
+
+      <label class="m-label">App Name</label>
+      <input type="text" class="m-input" id="oauth-name" placeholder="e.g. My Shopping App" maxlength="60" />
+
+      <label class="m-label">Description (optional)</label>
+      <input type="text" class="m-input" id="oauth-desc" placeholder="A short description of what your app does" maxlength="160" />
+
+      <label class="m-label">Website URL (optional)</label>
+      <input type="url" class="m-input" id="oauth-website" placeholder="https://myapp.com" />
+
+      <label class="m-label">Redirect URIs</label>
+      <textarea class="m-textarea" id="oauth-redirects" placeholder="https://myapp.com/auth/callback&#10;http://localhost:3000/callback"></textarea>
+      <div class="m-hint">One URI per line. Must use HTTPS (or localhost for development).</div>
+
+      <div class="m-error" id="oauth-error"></div>
+
+      <div style="display:flex; gap:10px; margin-top:22px;">
+        <button class="btn purple" style="flex:1;" id="create-oauth-confirm">Create App</button>
+        <button class="btn ghost" id="oauth-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECRET REVEAL MODAL ============ -->
+  <div class="overlay" id="secret-overlay">
+    <div class="modal">
+      <h3>Your App Credentials</h3>
+      <p class="modal-sub">Save these now. The <strong>client_secret will never be shown again.</strong></p>
+
+      <div style="margin-top:14px;">
+        <label class="m-label">Client ID (safe to share)</label>
+        <div class="key-value purple" id="reveal-client-id"></div>
+      </div>
+
+      <div class="secret-reveal">
+        <div class="warn">⚠️ Copy this now — it will not be shown again</div>
+        <div class="val" id="reveal-secret"></div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="btn ghost" style="flex:1;" id="copy-secret-btn">Copy Secret</button>
+        <button class="btn purple" style="flex:1;" id="secret-done-btn">I've Saved It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NEW API KEY MODAL ============ -->
+  <div class="overlay" id="key-overlay">
+    <div class="modal">
+      <h3>New API Key</h3>
       <label class="m-label">Key Name</label>
-      <input type="text" class="m-input" id="key-name" placeholder="e.g. My Shopping App" />
+      <input type="text" class="m-input" id="key-name" placeholder="e.g. My Backend Server" />
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button class="btn" style="flex:1;" id="create-key-confirm">Generate</button>
-        <button class="btn ghost" id="cancel-btn">Cancel</button>
+        <button class="btn ghost" id="key-cancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -224,8 +368,8 @@
 
 <script>
 (function(){
-  const $ = (s) => document.querySelector(s);
-  const $$ = (s) => [...document.querySelectorAll(s)];
+  const $ = (s, c=document) => c.querySelector(s);
+  const $$ = (s, c=document) => [...c.querySelectorAll(s)];
   let toastTimer;
   function toast(msg, type='info'){
     const t = $('#toast');
@@ -235,16 +379,130 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  const overlay = $('#overlay');
-  $('#new-key-btn').addEventListener('click', () => overlay.classList.add('show'));
-  $('#cancel-btn').addEventListener('click', () => overlay.classList.remove('show'));
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+  async function api(url, opts={}){
+    const res = await fetch(url, opts);
+    if (res.status === 401){
+      toast('Session expired', 'error');
+      setTimeout(() => window.location.href = '/login', 1200);
+      throw new Error('session');
+    }
+    return res;
+  }
+
+  /* ======================================================
+     OAUTH APP REGISTRATION
+     ====================================================== */
+  const oauthOverlay = $('#oauth-overlay');
+  $('#new-oauth-btn').addEventListener('click', () => {
+    $('#oauth-name').value = '';
+    $('#oauth-desc').value = '';
+    $('#oauth-website').value = '';
+    $('#oauth-redirects').value = '';
+    $('#oauth-error').classList.remove('show');
+    oauthOverlay.classList.add('show');
+  });
+  $('#oauth-cancel').addEventListener('click', () => oauthOverlay.classList.remove('show'));
+  oauthOverlay.addEventListener('click', (e) => { if (e.target === oauthOverlay) oauthOverlay.classList.remove('show'); });
+
+  $('#create-oauth-confirm').addEventListener('click', async () => {
+    const name = $('#oauth-name').value.trim();
+    const description = $('#oauth-desc').value.trim();
+    const website_url = $('#oauth-website').value.trim();
+    const redirect_uris = $('#oauth-redirects').value.trim();
+    const err = $('#oauth-error');
+
+    const fail = (m) => { err.textContent = m; err.classList.add('show'); };
+    err.classList.remove('show');
+
+    if (!name) return fail('App name is required.');
+    if (!redirect_uris) return fail('At least one redirect URI is required.');
+
+    const btn = $('#create-oauth-confirm');
+    btn.disabled = true; btn.textContent = 'Creating...';
+
+    try {
+      const res = await api('/api/admin/oauth-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, redirect_uris, website_url })
+      });
+      const data = await res.json();
+
+      if (!res.ok){
+        fail(data.error || 'Could not create app');
+        btn.disabled = false; btn.textContent = 'Create App';
+        return;
+      }
+
+      oauthOverlay.classList.remove('show');
+
+      // Show the secret modal
+      $('#reveal-client-id').textContent = data.client_id;
+      $('#reveal-secret').textContent = data.client_secret;
+      $('#secret-overlay').classList.add('show');
+    } catch(e){
+      fail('Network error');
+      btn.disabled = false; btn.textContent = 'Create App';
+    }
+  });
+
+  /* Secret reveal modal */
+  $('#secret-done-btn').addEventListener('click', () => {
+    $('#secret-overlay').classList.remove('show');
+    setTimeout(() => window.location.reload(), 300);
+  });
+  $('#copy-secret-btn').addEventListener('click', async () => {
+    const secret = $('#reveal-secret').textContent;
+    try {
+      await navigator.clipboard.writeText(secret);
+      toast('Secret copied!', 'success');
+    } catch(e){
+      toast('Could not copy — select manually', 'error');
+    }
+  });
+
+  /* Copy client id buttons */
+  $$('.copy-client-id').forEach(b => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.value); toast('Client ID copied!', 'success'); }
+    catch(e){ toast('Could not copy', 'error'); }
+  }));
+
+  /* Rotate secret */
+  $$('.rotate-btn').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Rotate the client secret? The old secret will stop working immediately.')) return;
+    try {
+      const res = await api(`/api/admin/oauth-clients/${b.dataset.id}/rotate-secret`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok){ toast(data.error || 'Failed', 'error'); return; }
+      $('#reveal-client-id').textContent = '';
+      $('#reveal-secret').textContent = data.client_secret;
+      $('#secret-overlay').classList.add('show');
+    } catch(e){}
+  }));
+
+  /* Delete OAuth app */
+  $$('.delete-oauth-btn').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Delete this OAuth app? All user authorizations will be revoked.')) return;
+    try {
+      const res = await api(`/api/admin/oauth-clients/${b.dataset.id}`, { method: 'DELETE' });
+      if (res.ok){ toast('App deleted', 'success'); setTimeout(() => location.reload(), 600); }
+      else { toast('Failed', 'error'); }
+    } catch(e){}
+  }));
+
+  /* ======================================================
+     API KEYS (existing)
+     ====================================================== */
+  const keyOverlay = $('#key-overlay');
+  $('#new-key-btn').addEventListener('click', () => keyOverlay.classList.add('show'));
+  $('#key-cancel').addEventListener('click', () => keyOverlay.classList.remove('show'));
+  keyOverlay.addEventListener('click', (e) => { if (e.target === keyOverlay) keyOverlay.classList.remove('show'); });
 
   $('#create-key-confirm').addEventListener('click', async () => {
     const name = $('#key-name').value.trim();
     if (!name){ toast('Please enter a name', 'error'); return; }
     try {
-      const res = await fetch('/api/admin/keys', {
+      const res = await api('/api/admin/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -258,27 +516,24 @@
 
   $$('.copy-btn').forEach(b => b.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(b.dataset.key); toast('Copied!', 'success'); }
-    catch(e){ toast('Could not copy — select manually', 'error'); }
+    catch(e){ toast('Could not copy', 'error'); }
   }));
 
   $$('.revoke-btn').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('Revoke this key? Any app using it will lose access.')) return;
-    const res = await fetch(`/api/admin/keys/${b.dataset.id}/revoke`, { method: 'POST' });
+    if (!confirm('Revoke this key?')) return;
+    const res = await api(`/api/admin/keys/${b.dataset.id}/revoke`, { method: 'POST' });
     if (res.ok){ toast('Revoked', 'success'); setTimeout(() => location.reload(), 500); }
-    else { toast('Failed', 'error'); }
   }));
 
   $$('.activate-btn').forEach(b => b.addEventListener('click', async () => {
-    const res = await fetch(`/api/admin/keys/${b.dataset.id}/activate`, { method: 'POST' });
+    const res = await api(`/api/admin/keys/${b.dataset.id}/activate`, { method: 'POST' });
     if (res.ok){ toast('Activated', 'success'); setTimeout(() => location.reload(), 500); }
-    else { toast('Failed', 'error'); }
   }));
 
   $$('.delete-btn').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Permanently delete this key?')) return;
-    const res = await fetch(`/api/admin/keys/${b.dataset.id}`, { method: 'DELETE' });
+    const res = await api(`/api/admin/keys/${b.dataset.id}`, { method: 'DELETE' });
     if (res.ok){ toast('Deleted', 'success'); setTimeout(() => location.reload(), 500); }
-    else { toast('Failed', 'error'); }
   }));
 })();
 </script>

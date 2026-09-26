@@ -112,6 +112,45 @@ if DATABASE_URL:
         """)
         _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
 
+        # ============================================================
+        # OAuth 2.0 Tables
+        # ============================================================
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS oauth_clients (
+                id SERIAL PRIMARY KEY,
+                client_id TEXT UNIQUE NOT NULL,
+                client_secret_hash TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                redirect_uris TEXT NOT NULL,
+                owner_user_id INTEGER,
+                owner_email TEXT,
+                plan TEXT DEFAULT 'free',
+                users_created INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                last_used TIMESTAMP
+            )
+        """)
+        _add_column_safe(c, "oauth_clients", "logo_url", "TEXT")
+        _add_column_safe(c, "oauth_clients", "website_url", "TEXT")
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS oauth_authorizations (
+                id SERIAL PRIMARY KEY,
+                code TEXT UNIQUE,
+                code_expires_at TIMESTAMP,
+                access_token TEXT UNIQUE,
+                refresh_token TEXT UNIQUE,
+                client_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                scope TEXT DEFAULT 'profile email',
+                token_expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                revoked INTEGER DEFAULT 0
+            )
+        """)
+
         conn.commit()
         conn.close()
         print("PostgreSQL database initialized.")
@@ -223,6 +262,43 @@ else:
             )
         """)
         _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
+
+        # OAuth tables
+        execute_query(c, """
+            CREATE TABLE IF NOT EXISTS oauth_clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id TEXT UNIQUE NOT NULL,
+                client_secret_hash TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                redirect_uris TEXT NOT NULL,
+                owner_user_id INTEGER,
+                owner_email TEXT,
+                plan TEXT DEFAULT 'free',
+                users_created INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                last_used TIMESTAMP
+            )
+        """)
+        _add_column_safe(c, "oauth_clients", "logo_url", "TEXT")
+        _add_column_safe(c, "oauth_clients", "website_url", "TEXT")
+
+        execute_query(c, """
+            CREATE TABLE IF NOT EXISTS oauth_authorizations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE,
+                code_expires_at TIMESTAMP,
+                access_token TEXT UNIQUE,
+                refresh_token TEXT UNIQUE,
+                client_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                scope TEXT DEFAULT 'profile email',
+                token_expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                revoked INTEGER DEFAULT 0
+            )
+        """)
 
         conn.commit()
         conn.close()

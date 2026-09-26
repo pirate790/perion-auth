@@ -258,7 +258,14 @@ def admin_required_api(view):
         return view(session, *args, **kwargs)
     return wrapper
 
+def generate_client_id():
+    """Public identifier for an OAuth app. Safe to share."""
+    return "per_client_" + secrets.token_hex(12)
 
+
+def generate_client_secret():
+    """Private secret for an OAuth app. Shown once, stored hashed."""
+    return "per_secret_" + secrets.token_urlsafe(32)
 def _user_owns_key(user_id, key_id):
     if is_admin_user(user_id):
         return True
@@ -902,6 +909,8 @@ def developers_page(session):
     admin = is_admin_user(session["user_id"])
     conn = get_db()
     c = conn.cursor()
+
+    # --- API keys ---
     if admin:
         execute_query(c, """
             SELECT k.id, k.key, k.name, k.owner_email, k.created_at, k.is_active,
@@ -919,75 +928,172 @@ def developers_page(session):
             ORDER BY created_at DESC
         """, (session["user_id"],))
     keys = [dict(r) for r in c.fetchall()]
-    conn.close()
     for k in keys:
         k["created_str"] = str(k.get("created_at") or "")[:16]
         k["last_used_str"] = str(k.get("last_used") or "Never")[:16]
-    return render_template("developers.html", keys=keys, is_admin=admin, token=session["token"])
 
+    # --- OAuth clients ---
+    if admin:
+        execute_query(c, """
+            SELECT oc.id, oc.client_id, oc.name, oc.description, oc.redirect_uris,
+                   oc.owner_email, oc.plan, oc.users_created, oc.created_at,
+                   oc.is_active, oc.last_used, oc.website_url,
+                   u.email AS owner_user_email
+            FROM oauth_clients oc
+            LEFT JOIN users u ON u.id = oc.owner_user_id
+            WHERE oc.is_active = 1
+            ORDER BY oc.created_at DESC
+        """)
+    else:
+        execute_query(c, """
+            SELECT id, client_id, name, description, redirect_uris,
+                   owner_email, plan, users_created, created_at,
+                   is_active, last_used, website_url, NULL AS owner_user_email
+            FROM oauth_clients
+            WHERE owner_user_id = %s AND is_active = 1
+            ORDER BY created_at DESC
+        """, (session["user_id"],))
+    oauth_clients = []
+    for r in c.fetchall():
+        r = dict(r)
+        r["created_str"] = str(r.get("created_at") or "")[:16]
+        r["last_used_str"] = str(r.get("last_used") or "Never")[:16]
+        # Parse redirect URIs back into a list for the template
+        r["redirect_uris_list"] = [u for u in (r.get("redirect_uris") or "").split("\n") if u]
+        oauth_clients.append(r)
 
-@app.route("/api/admin/keys", methods=["POST"])
+    conn.close()
+
+    return render_template(
+        "developers.html",
+        keys=keys,
+        oauth_clients=oauth_clients,
+        is_admin=admin,
+        token=session["token"],
+    )
+# ============================================================
+# OAUTH CLIENT MANAGEMENT
+# ============================================================
+@app.route("/api/admin/oauth-clients", methods=["POST"])
 @login_required_api
-def api_admin_create_key(session):
+def api_create_oauth_client(session):
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
+    description = (data.get("description") or "").strip() or None
+    redirect_uris_raw = (data.get("redirect_uris") or "").strip()
+    website_url = (data.get("website_url") or "").strip() or None
+
     if not name:
-        return jsonify({"error": "Name is required"}), 400
+        return jsonify({"error": "App name is required"}), 400
+    if not redirect_uris_raw:
+        return jsonify({"error": "At least one redirect URI is required"}), 400
 
+    # Split by newline and filter empty
+    redirect_uris = [u.strip() for u in redirect_uris_raw.splitlines() if u.strip()]
+    if not redirect_uris:
+        return jsonify({"error": "No valid redirect URIs provided"}), 400
+
+    # Validate each URI
+    for uri in redirect_uris:
+        if not (uri.startswith("https://") or uri.startswith("http://localhost") or uri.startswith("http://127.0.0.1")):
+            return jsonify({"error": f"Redirect URI must use HTTPS (or localhost for dev): {uri}"}), 400
+
+    # Check for free tier limit (1 app for free users)
     conn = get_db()
     c = conn.cursor()
+    execute_query(c, "SELECT COUNT(*) AS n FROM oauth_clients WHERE owner_user_id = %s AND is_active = 1",
+                  (session["user_id"],))
+    existing = c.fetchone()["n"]
+
+    is_admin = is_admin_user(session["user_id"])
+    if not is_admin and existing >= 1:
+        conn.close()
+        return jsonify({
+            "error": "Free tier allows 1 OAuth app. Upgrade to Pro for unlimited apps.",
+            "code": "plan_limit_reached"
+        }), 402
+
+    # Get owner email
     execute_query(c, "SELECT email FROM users WHERE id = %s", (session["user_id"],))
-    row = c.fetchone()
-    owner_email = row["email"] if row else None
+    owner_row = c.fetchone()
+    owner_email = owner_row["email"] if owner_row else None
 
-    new_key = generate_api_key()
+    client_id = generate_client_id()
+    client_secret = generate_client_secret()
+    secret_hash = bcrypt.hashpw(client_secret.encode(), bcrypt.gensalt()).decode()
+
     execute_query(c, """
-        INSERT INTO api_keys (key, name, owner_email, owner_user_id)
-        VALUES (%s, %s, %s, %s)
-    """, (new_key, name, owner_email, session["user_id"]))
+        INSERT INTO oauth_clients
+        (client_id, client_secret_hash, name, description, redirect_uris,
+         owner_user_id, owner_email, website_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """, (client_id, secret_hash, name, description, "\n".join(redirect_uris),
+          session["user_id"], owner_email, website_url))
     conn.commit()
     conn.close()
-    return jsonify({"success": True, "key": new_key, "name": name})
+
+    log_login_event(session["user_id"], f"OAuth app created: {name}")
+
+    return jsonify({
+        "success": True,
+        "client_id": client_id,
+        "client_secret": client_secret,  # Shown ONCE — never stored in plaintext
+        "name": name,
+    })
 
 
-@app.route("/api/admin/keys/<int:key_id>/revoke", methods=["POST"])
+@app.route("/api/admin/oauth-clients/<int:client_pk>/rotate-secret", methods=["POST"])
 @login_required_api
-def api_admin_revoke_key(session, key_id):
-    if not _user_owns_key(session["user_id"], key_id):
-        return jsonify({"error": "Not your key"}), 403
+def api_rotate_client_secret(session, client_pk):
+    """Generate a new secret. Old secret stops working immediately."""
+    if not _user_owns_oauth_client(session["user_id"], client_pk):
+        return jsonify({"error": "Not your app"}), 403
+
+    new_secret = generate_client_secret()
+    secret_hash = bcrypt.hashpw(new_secret.encode(), bcrypt.gensalt()).decode()
+
     conn = get_db()
     c = conn.cursor()
-    execute_query(c, "UPDATE api_keys SET is_active = 0 WHERE id = %s", (key_id,))
+    execute_query(c, "UPDATE oauth_clients SET client_secret_hash = %s WHERE id = %s",
+                  (secret_hash, client_pk))
     conn.commit()
     conn.close()
+
+    log_login_event(session["user_id"], f"OAuth client secret rotated (id {client_pk})")
+    return jsonify({"success": True, "client_secret": new_secret})
+
+
+@app.route("/api/admin/oauth-clients/<int:client_pk>", methods=["DELETE"])
+@login_required_api
+def api_delete_oauth_client(session, client_pk):
+    if not _user_owns_oauth_client(session["user_id"], client_pk):
+        return jsonify({"error": "Not your app"}), 403
+
+    conn = get_db()
+    c = conn.cursor()
+    # Soft delete — keep record but mark inactive
+    execute_query(c, "UPDATE oauth_clients SET is_active = 0 WHERE id = %s", (client_pk,))
+    # Revoke all authorizations
+    execute_query(c, "UPDATE oauth_authorizations SET revoked = 1 WHERE client_id = (SELECT client_id FROM oauth_clients WHERE id = %s)",
+                  (client_pk,))
+    conn.commit()
+    conn.close()
+
+    log_login_event(session["user_id"], f"OAuth app deleted (id {client_pk})")
     return jsonify({"success": True})
 
 
-@app.route("/api/admin/keys/<int:key_id>/activate", methods=["POST"])
-@login_required_api
-def api_admin_activate_key(session, key_id):
-    if not _user_owns_key(session["user_id"], key_id):
-        return jsonify({"error": "Not your key"}), 403
+def _user_owns_oauth_client(user_id, client_pk):
+    if is_admin_user(user_id):
+        return True
     conn = get_db()
     c = conn.cursor()
-    execute_query(c, "UPDATE api_keys SET is_active = 1 WHERE id = %s", (key_id,))
-    conn.commit()
+    execute_query(c, "SELECT owner_user_id FROM oauth_clients WHERE id = %s", (client_pk,))
+    row = c.fetchone()
     conn.close()
-    return jsonify({"success": True})
-
-
-@app.route("/api/admin/keys/<int:key_id>", methods=["DELETE"])
-@login_required_api
-def api_admin_delete_key(session, key_id):
-    if not _user_owns_key(session["user_id"], key_id):
-        return jsonify({"error": "Not your key"}), 403
-    conn = get_db()
-    c = conn.cursor()
-    execute_query(c, "DELETE FROM api_keys WHERE id = %s", (key_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
-
+    if not row:
+        return False
+    return row["owner_user_id"] == user_id
 
 # ============================================================
 # PUBLIC API v1
