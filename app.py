@@ -1394,6 +1394,45 @@ def oauth_userinfo():
 
     return jsonify(result)
 # ============================================================
+# OAUTH CONNECTED APPS (user-facing)
+# ============================================================
+@app.route("/api/oauth/connected-apps", methods=["GET"])
+@login_required_api
+def api_oauth_connected_apps(session):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, """
+        SELECT a.id, a.scope, a.created_at, oc.name, oc.client_id
+        FROM oauth_authorizations a
+        JOIN oauth_clients oc ON oc.client_id = a.client_id
+        WHERE a.user_id = %s AND a.revoked = 0 AND oc.is_active = 1
+        ORDER BY a.created_at DESC
+    """, (session["user_id"],))
+    rows = []
+    for r in c.fetchall():
+        r = dict(r)
+        r["created_str"] = str(r.get("created_at") or "")[:16]
+        rows.append(r)
+    conn.close()
+    return jsonify({"apps": rows})
+
+
+@app.route("/api/oauth/connected-apps/<int:auth_id>/revoke", methods=["POST"])
+@login_required_api
+def api_oauth_revoke_app(session, auth_id):
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT user_id FROM oauth_authorizations WHERE id = %s", (auth_id,))
+    row = c.fetchone()
+    if not row or row["user_id"] != session["user_id"]:
+        conn.close()
+        return jsonify({"error": "Not your authorization"}), 403
+    execute_query(c, "UPDATE oauth_authorizations SET revoked = 1 WHERE id = %s", (auth_id,))
+    conn.commit()
+    conn.close()
+    log_login_event(session["user_id"], f"Revoked OAuth app (auth id {auth_id})")
+    return jsonify({"success": True})
+# ============================================================
 # PUBLIC API v1
 # ============================================================
 def require_api_key(view):
@@ -1608,6 +1647,30 @@ def api_v1_logout():
 # ============================================================
 # PUBLIC DOCS PAGE
 # ============================================================
+@app.route("/pricing")
+def pricing_page():
+    """Public pricing page."""
+    return render_template("pricing.html")
+
+
+@app.route("/billing")
+@login_required_html
+def billing_page(session):
+    """Billing/upgrade page — payment integration coming next."""
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT email, display_name FROM users WHERE id = %s", (session["user_id"],))
+    user = dict(c.fetchone())
+    conn.close()
+    return render_template(
+        "billing.html",
+        email=user["email"],
+        display_name=user.get("display_name") or user["email"].split("@")[0],
+        is_admin=is_admin_user(session["user_id"]),
+        token=session["token"],
+    )
+
+
 @app.route("/docs")
 def docs_page():
     return render_template("docs.html")

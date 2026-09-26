@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#25D366">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PerionAuth — Pricing</title>
+<style>
+:root{
+  --bg:#050506;
+  --text:#f4f4f5;
+  --muted:#9b9ba1;
+  --faint:#5c5c63;
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.22);
+  --card:rgba(255,255,255,.035);
+  --card-hot:rgba(255,255,255,.06);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  line-height:1.5;
+}
+::selection{background:rgba(255,255,255,.85);color:#000}
+
+/* ---------- atmosphere ---------- */
+.stars{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(255,255,255,.5), transparent 100%),
+    radial-gradient(1px 1px at 78% 12%, rgba(255,255,255,.4), transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 32%, rgba(255,255,255,.35), transparent 100%),
+    radial-gradient(1px 1px at 32% 8%,  rgba(255,255,255,.45), transparent 100%),
+    radial-gradient(1px 1px at 90% 38%, rgba(255,255,255,.3), transparent 100%),
+    radial-gradient(1.5px 1.5px at 8% 55%, rgba(255,255,255,.25), transparent 100%),
+    radial-gradient(1px 1px at 66% 18%, rgba(255,255,255,.4), transparent 100%);
+}
+.glow{
+  position:absolute;top:-220px;left:50%;transform:translateX(-50%);
+  width:900px;height:520px;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at center, rgba(255,255,255,.09), transparent 65%);
+  filter:blur(10px);
+}
+
+/* ---------- layout ---------- */
+.page{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* ---------- nav ---------- */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 0;border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:.2px}
+.mark{
+  width:30px;height:30px;border-radius:9px;background:#fff;color:#000;
+  display:flex;align-items:center;justify-content:center;flex:none;
+}
+.links{display:flex;gap:28px;font-size:14px;color:var(--muted)}
+.links a{color:inherit;text-decoration:none;transition:color .2s var(--ease)}
+.links a:hover,.links a.active{color:var(--text)}
+.btn{
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  border-radius:999px;padding:9px 20px;
+  border:1px solid var(--line);background:transparent;color:var(--text);
+  transition:all .2s var(--ease);
+}
+.btn:hover{border-color:rgba(255,255,255,.45)}
+.btn-solid{background:#fff;color:#000;border-color:#fff}
+.btn-solid:hover{opacity:.88;border-color:#fff}
+
+/* ---------- hero ---------- */
+.hero{position:relative;text-align:center;padding:96px 0 40px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px;margin-bottom:26px;
+  backdrop-filter:blur(8px);background:rgba(255,255,255,.02);
+}
+.eyebrow svg{color:#fff}
+.ghost{
+  position:absolute;top:34px;left:50%;transform:translateX(-50%);
+  font-size:clamp(120px,22vw,220px);font-weight:800;letter-spacing:-.02em;
+  color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.07);
+  user-select:none;pointer-events:none;white-space:nowrap;line-height:1;z-index:0;
+}
+.hero h1{
+  position:relative;z-index:1;
+  font-size:clamp(34px,5vw,52px);font-weight:700;line-height:1.1;letter-spacing:-.02em;
+}
+.hero p{
+  position:relative;z-index:1;
+  margin:16px auto 0;max-width:520px;color:var(--muted);font-size:16px;
+}
+
+/* ---------- billing toggle ---------- */
+.toggle{display:flex;justify-content:center;margin:36px 0 48px}
+.seg{
+  display:inline-flex;gap:4px;padding:4px;border-radius:12px;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);
+  backdrop-filter:blur(12px);
+}
+.seg button{
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  border:0;border-radius:9px;padding:9px 22px;
+  background:transparent;color:var(--muted);
+  transition:all .25s var(--ease);
+}
+.seg button.on{background:#fff;color:#000}
+.save{
+  font-size:11px;font-weight:700;color:#7ee2a8;
+  background:rgba(126,226,168,.12);border-radius:999px;padding:2px 8px;
+}
+.seg button.on .save{color:#0a7a3d;background:rgba(10,122,61,.14)}
+
+/* ---------- cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+.card{
+  position:relative;display:flex;flex-direction:column;
+  padding:28px;border-radius:20px;
+  background:var(--card);border:1px solid var(--line);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  transition:transform .35s var(--ease),border-color .35s var(--ease),background .35s var(--ease);
+}
+.card:hover{transform:translateY(-6px);border-color:rgba(255,255,255,.2)}
+.card.hot{
+  background:var(--card-hot);border-color:var(--line-strong);
+  box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 30px 80px -30px rgba(255,255,255,.12);
+}
+.card.hot:hover{border-color:rgba(255,255,255,.4)}
+.tag{
+  position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  background:#fff;color:#000;border-radius:999px;padding:5px 14px;white-space:nowrap;
+}
+.plan-name{font-size:13px;color:var(--muted);margin-bottom:10px}
+.price{display:flex;align-items:baseline;gap:5px}
+.num{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+.per{font-size:15px;color:var(--faint)}
+.note{font-size:12px;color:var(--faint);min-height:18px;margin:6px 0 20px}
+.feats{
+  list-style:none;flex:1;
+  border-top:1px solid var(--line);padding-top:20px;margin-bottom:24px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.feats li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#c9c9cf;line-height:1.45}
+.feats svg{flex:none;margin-top:2px;color:#fff}
+.feats li.off{color:var(--faint)}
+.feats li.off svg{color:var(--faint)}
+.cta{
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;width:100%;
+  border-radius:12px;padding:14px 0;
+  border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--text);
+  transition:all .2s var(--ease);
+}
+.cta:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.06)}
+.cta-solid{background:#fff;color:#000;border-color:#fff}
+.cta-solid:hover{background:rgba(255,255,255,.88);border-color:#fff}
+
+/* ---------- pills & fine print ---------- */
+.pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:40px 0 10px}
+.pill{
+  display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;padding:8px 16px;
+  background:rgba(255,255,255,.02);backdrop-filter:blur(8px);
+  transition:color .2s var(--ease),border-color .2s var(--ease);
+}
+.pill:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+.pill svg{color:#fff}
+.fine{text-align:center;font-size:12px;color:var(--faint);margin-bottom:16px}
+
+/* ---------- faq ---------- */
+.faq{max-width:680px;margin:24px auto 0}
+.faq details{border-top:1px solid var(--line)}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{
+  list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  padding:18px 4px;font-size:15px;font-weight:600;
+  transition:color .2s var(--ease);
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary:hover{color:#fff}
+.faq summary .x{
+  font-weight:400;font-size:18px;color:var(--muted);
+  transition:transform .25s var(--ease);
+}
+.faq details[open] summary .x{transform:rotate(45deg)}
+.faq details p{font-size:14px;color:var(--muted);padding:0 4px 18px;max-width:600px;line-height:1.6}
+
+/* ---------- footer ---------- */
+footer{
+  display:flex;justify-content:center;gap:32px;flex-wrap:wrap;
+  padding:40px 0 56px;margin-top:48px;border-top:1px solid var(--line);
+  font-size:13px;color:var(--faint);
+}
+footer a{color:inherit;text-decoration:none;transition:color .2s var(--ease)}
+footer a:hover{color:var(--text)}
+
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr;max-width:440px;margin:0 auto}
+  .links{display:none}
+  .hero{padding-top:64px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important}
+}
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="page">
+  <div class="glow"></div>
+
+  <nav>
+    <div class="brand">
+      <div class="mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M17 3.8H7C5.78497 3.8 4.8 4.78497 4.8 6V15.7647C4.8 16.574 5.24438 17.318 5.95698 17.7017L10.957 20.394C11.6081 20.7446 12.3919 20.7446 13.043 20.394L18.043 17.7017C18.7556 17.318 19.2 16.574 19.2 15.7647V6C19.2 4.78497 18.215 3.8 17 3.8ZM7 2C4.79086 2 3 3.79086 3 6V15.7647C3 17.2362 3.80796 18.5889 5.1036 19.2866L10.1036 21.9789C11.2875 22.6164 12.7125 22.6164 13.8964 21.9789L18.8964 19.2866C20.192 18.5889 21 17.2362 21 15.7647V6C21 3.79086 19.2091 2 17 2H7Z" fill="currentColor"/>
+          <path d="M12 6.3C9.62466 6.3 7.7 8.22466 7.7 10.6C7.7 12.9753 9.62466 14.9 12 14.9C14.3753 14.9 16.3 12.9753 16.3 10.6C16.3 8.22466 14.3753 6.3 12 6.3ZM12 8.1C13.3812 8.1 14.5 9.2188 14.5 10.6C14.5 11.9812 13.3812 13.1 12 13.1C10.6188 13.1 9.5 11.9812 9.5 10.6C9.5 9.2188 10.6188 8.1 12 8.1Z" fill="currentColor"/>
+          <path d="M11.2 14.5H12.8V16.5C12.8 16.8866 12.4866 17.2 12.1 17.2H11.9C11.5134 17.2 11.2 16.8866 11.2 16.5V14.5Z" fill="currentColor"/>
+        </svg>
+      </div>
+      PerionAuth
+    </div>
+    <div class="links">
+  <a href="/">Home</a>
+  <a href="/pricing" class="active">Pricing</a>
+  <a href="/docs">Docs</a>
+  <a href="/developers">Developers</a>
+</div>
+<a href="/login" class="btn" style="text-decoration:none; display:inline-block;">Sign in</a>
+
+  <header class="hero">
+    <div class="ghost">Pricing</div>
+    <div class="eyebrow">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>
+      Plans &amp; pricing
+    </div>
+    <h1>Security that scales<br>with your users.</h1>
+    <p>One auth layer from first sign-up to enterprise scale. No hidden fees, no per-seat surprises.</p>
+  </header>
+
+  <div class="toggle">
+    <div class="seg" id="seg">
+      <button data-cycle="monthly">Monthly</button>
+      <button data-cycle="yearly" class="on">Yearly <span class="save">&minus;25%</span></button>
+    </div>
+  </div>
+
+  <section class="grid">
+
+    <!-- Starter -->
+    <div class="card">
+      <div class="plan-name">Starter</div>
+      <div class="price"><span class="num" data-m="0" data-y="0">$0</span><span class="per">/mo</span></div>
+      <div class="note">Free forever</div>
+      <ul class="feats">
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Up to 5,000 monthly active users</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Email/password + 2 social providers</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>TOTP authenticator MFA</li>
+        <li class="off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5.09961C12.4971 5.09961 12.9 5.50256 12.9 5.99961V11.9996H18.9C19.3971 11.9996 19.8 12.4026 19.8 12.8996C19.8 13.3967 19.3971 13.7996 18.9 13.7996H12C11.5029 13.7996 11.1 13.3967 11.1 12.8996V5.99961C11.1 5.50256 11.5029 5.09961 12 5.09961Z" fill="currentColor"/></svg>Passkeys &amp; WebAuthn</li>
+        <li class="off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5.09961C12.4971 5.09961 12.9 5.50256 12.9 5.99961V11.9996H18.9C19.3971 11.9996 19.8 12.4026 19.8 12.8996C19.8 13.3967 19.3971 13.7996 18.9 13.7996H12C11.5029 13.7996 11.1 13.3967 11.1 12.8996V5.99961C11.1 5.50256 11.5029 5.09961 12 5.09961Z" fill="currentColor"/></svg>SSO / SAML</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Community support</li>
+      </ul>
+      <a href="/login?view=signup" class="cta" style="display:block; text-align:center; text-decoration:none;">Start for free</a>
+    </div>
+
+    <!-- Pro -->
+    <div class="card hot">
+      <div class="tag">Most popular</div>
+      <div class="plan-name">Pro</div>
+      <div class="price"><span class="num" data-m="12" data-y="9">$9</span><span class="per">/mo</span></div>
+      <div class="note" data-m="Billed monthly" data-y="Billed $108 yearly">Billed $108 yearly</div>
+      <ul class="feats">
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Up to 50,000 monthly active users</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Unlimited social providers</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Passkeys &amp; WebAuthn</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>SMS &amp; email one-time codes</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Audit logs, 30-day retention</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Priority email support</li>
+      </ul>
+      <a href="/billing?plan=pro" class="cta cta-solid" style="display:block; text-align:center; text-decoration:none;">Get started</a>
+    </div>
+
+      <!-- Scale -->
+  <div class="card">
+    <div class="plan-name">Scale</div>
+    <div class="price"><span class="num" data-m="49" data-y="39">$39</span><span class="per">/mo</span></div>
+    <div class="note" data-m="Billed monthly" data-y="Billed $468 yearly">Billed $468 yearly</div>
+    <ul class="feats">
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Unlimited monthly active users</li>
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>SSO / SAML &amp; OIDC</li>
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Custom domains &amp; branding</li>
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Audit logs, 1-year retention + export</li>
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>99.99% uptime SLA</li>
+      <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M19.3027 5.9053C19.6542 5.55397 20.2247 5.55388 20.5761 5.9053C20.9273 6.25675 20.9273 6.82734 20.5761 7.17874L9.65911 18.0948C9.30773 18.4461 8.73814 18.446 8.38665 18.0948L3.42376 13.1328C3.0726 12.7814 3.07263 12.2118 3.42376 11.8604C3.77524 11.509 4.34575 11.5089 4.6972 11.8604L9.02239 16.1856L19.3027 5.9053Z" fill="currentColor"/></svg>Dedicated success engineer</li>
+    </ul>
+    <a href="mailto:isaiahmichealasuquo@gmail.com?subject=Scale%20plan%20enquiry" class="cta" style="display:block; text-align:center; text-decoration:none;">Contact sales</a>
+  </div>
+</section>
+
+  <div class="pills">
+    <div class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M17 3.8H7C5.78497 3.8 4.8 4.78497 4.8 6V15.7647C4.8 16.574 5.24438 17.318 5.95698 17.7017L10.957 20.394C11.6081 20.7446 12.3919 20.7446 13.043 20.394L18.043 17.7017C18.7556 17.318 19.2 16.574 19.2 15.7647V6C19.2 4.78497 18.215 3.8 17 3.8ZM7 2C4.79086 2 3 3.79086 3 6V15.7647C3 17.2362 3.80796 18.5889 5.1036 19.2866L10.1036 21.9789C11.2875 22.6164 12.7125 22.6164 13.8964 21.9789L18.8964 19.2866C20.192 18.5889 21 17.2362 21 15.7647V6C21 3.79086 19.2091 2 17 2H7Z" fill="currentColor"/></svg>
+      Passkeys &amp; WebAuthn
+    </div>
+    <div class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M3.97427 8.06961C4.99348 7.33581 6.18946 7.1 7.00001 7.1H9.00001C9.49706 7.1 9.90001 7.50294 9.90001 8C9.90001 8.49706 9.49706 8.9 9.00001 8.9H7.00001C6.47755 8.9 5.67353 9.06419 5.02599 9.53039C4.42434 9.96356 3.90001 10.6934 3.90001 12C3.90001 13.3066 4.42434 14.0364 5.02599 14.4696C5.67353 14.9358 6.47755 15.1 7.00001 15.1H9.00001C9.49706 15.1 9.90001 15.5029 9.90001 16C9.90001 16.4971 9.49706 16.9 9.00001 16.9H7.00001C6.18946 16.9 4.99348 16.6642 3.97427 15.9304C2.90929 15.1636 2.10001 13.7934 2.10001 12C2.10001 10.2066 2.90929 8.83644 3.97427 8.06961ZM14.9 7.1H17C17.8106 7.1 19.0065 7.33581 20.0257 8.06961C21.0907 8.83644 21.9 10.2066 21.9 12C21.9 13.7934 21.0907 15.1636 20.0257 15.9304C19.0065 16.6642 17.8106 16.9 17 16.9H14.9C14.4029 16.9 14 16.4971 14 16C14 15.5029 14.4029 15.1 14.9 15.1H17C17.5225 15.1 18.3265 14.9358 18.974 14.4696C19.5757 14.0364 20.1 13.3066 20.1 12C20.1 10.6934 19.5757 9.96356 18.974 9.53039C18.3265 9.06419 17.5225 8.9 17 8.9H14.9C14.4029 8.9 14 8.49706 14 8C14 7.50294 14.4029 7.1 14.9 7.1ZM8.99951 11.1H14.9995C15.4966 11.1 15.8995 11.5029 15.8995 12C15.8995 12.4971 15.4966 12.9 14.9995 12.9H8.99951C8.50245 12.9 8.09951 12.4971 8.09951 12C8.09951 11.5029 8.50245 11.1 8.99951 11.1Z" fill="currentColor"/></svg>
+      SSO / SAML / OIDC
+    </div>
+    <div class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11.8999 6.79965C12.397 6.79965 12.7997 7.20235 12.7997 7.69941V11.7266L14.7359 13.6629C15.0873 14.0143 15.0879 14.584 14.7366 14.9355C14.3852 15.287 13.8148 15.287 13.4633 14.9355L11.2632 12.7355C11.0947 12.5668 11.0002 12.338 11.0001 12.0995V7.69941C11.0001 7.20238 11.4029 6.7997 11.8999 6.79965Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.89893C17.4677 1.89893 21.9001 6.33147 21.9002 11.7991C21.9002 17.2669 17.4678 21.6993 12 21.6993C6.53228 21.6993 2.1001 17.267 2.1001 11.7991C2.1001 6.33125 6.53228 1.89893 12 1.89893ZM12 3.69893C7.52635 3.69893 3.9001 7.3253 3.9001 11.7991C3.9001 16.2729 7.52635 19.8993 12 19.8993C16.4738 19.8993 20.1002 16.2729 20.1002 11.7991C20.1001 7.3253 16.4737 3.69893 12 3.69893Z" fill="currentColor"/></svg>
+      Audit logs &amp; export
+    </div>
+    <div class="pill">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11.9997 12.8779C16.0197 12.878 19.4393 15.3848 20.7048 18.8828C21.0812 19.9234 20.2782 20.8962 19.2038 21.0137L18.9861 21.0264H5.0134L4.79562 21.0137C3.7213 20.8961 2.91743 19.9233 3.29367 18.8828C4.55905 15.3847 7.9797 12.8781 11.9997 12.8779ZM11.9997 14.6777C8.84467 14.6779 6.17462 16.5794 5.09152 19.2256H18.9079C17.8248 16.5793 15.1549 14.6778 11.9997 14.6777ZM12.2312 3.00586C14.6088 3.1264 16.4997 5.09239 16.4997 7.5L16.4939 7.73145C16.3734 10.1091 14.4073 11.9999 11.9997 12C9.59225 12 7.62615 10.1094 7.50562 7.73193L7.49976 7.5C7.49976 5.01472 9.51448 3 11.9998 3L12.2312 3.00586ZM11.9998 4.8C10.5084 4.8 9.29977 6.00858 9.29977 7.5L9.30386 7.66602C9.38502 9.09724 10.5596 10.2 11.9998 10.2C13.4401 10.2 14.6146 9.09724 14.6957 7.66602L14.6998 7.5C14.6998 6.00858 13.4912 4.8 11.9998 4.8Z" fill="currentColor"/></svg>
+      SCIM user provisioning
+    </div>
+  </div>
+  <p class="fine">Every plan includes end-to-end encryption, GDPR compliance, unlimited projects and environments.</p>
+
+  <section class="faq">
+    <details>
+      <summary>What counts as a monthly active user?<span class="x">+</span></summary>
+      <p>Anyone who signs in, signs up, or refreshes a valid session during the calendar month. Machine-to-machine tokens and webhook calls are never counted.</p>
+    </details>
+    <details>
+      <summary>Can I change plans later?<span class="x">+</span></summary>
+      <p>Yes. Upgrades apply instantly with prorated billing, and downgrades take effect at the end of your current cycle. Your users will never be logged out mid-change.</p>
+    </details>
+    <details>
+      <summary>Do you offer self-hosted deployment?<span class="x">+</span></summary>
+      <p>The Scale plan supports dedicated single-tenant clusters and on-prem connectors. Talk to sales for VPC, region pinning, and bring-your-own-key options.</p>
+    </details>
+  </section>
+
+  <footer>
+    <a href="#">Privacy policy</a>
+    <a href="#">Terms of service</a>
+    <a href="#">SLA</a>
+    <a href="#">Security</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var cycle='yearly';
+  var seg=document.getElementById('seg');
+  var btns=seg.querySelectorAll('button');
+  var nums=document.querySelectorAll('.num');
+  var notes=document.querySelectorAll('.note[data-m]');
+  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function animateNum(el,to){
+    if(reduced||!el.textContent){el.textContent='$'+to;return;}
+    var from=parseInt(el.textContent.replace(/[$,]/g,''),10)||0;
+    if(from===to){el.textContent='$'+to;return;}
+    var start=null,dur=320;
+    function step(ts){
+      if(!start)start=ts;
+      var p=Math.min((ts-start)/dur,1);
+      var e=1-Math.pow(1-p,3);
+      el.textContent='$'+Math.round(from+(to-from)*e);
+      if(p<1)requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function setCycle(c,btn){
+    cycle=c;
+    btns.forEach(function(b){b.classList.toggle('on',b===btn);});
+    nums.forEach(function(el){animateNum(el,parseInt(c==='monthly'?el.dataset.m:el.dataset.y,10));});
+    notes.forEach(function(el){el.textContent=c==='monthly'?el.dataset.m:el.dataset.y;});
+  }
+
+  btns.forEach(function(b){b.addEventListener('click',function(){setCycle(b.dataset.cycle,b);});});
+})();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
