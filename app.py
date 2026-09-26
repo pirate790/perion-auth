@@ -1669,7 +1669,36 @@ def billing_page(session):
         is_admin=is_admin_user(session["user_id"]),
         token=session["token"],
     )
+# ============================================================
+# MANUAL PAYMENTS (OPay / bank transfer)
+# ============================================================
+@app.route("/api/billing/submit-manual-payment", methods=["POST"])
+@login_required_api
+def api_submit_manual_payment(session):
+    """Record the user's intent to pay. Admin verifies and activates manually."""
+    data = request.get_json() or {}
+    plan = (data.get("plan") or "").strip().lower()
+    amount = int(data.get("amount") or 0)
+    reference = (data.get("reference") or "").strip()
+    method = (data.get("method") or "manual").strip().lower()
 
+    if plan not in ("pro", "scale"):
+        return jsonify({"error": "Invalid plan"}), 400
+    if amount <= 0:
+        return jsonify({"error": "Invalid amount"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, """
+        INSERT INTO manual_payments
+        (user_id, plan, amount, reference, method, status, created_at)
+        VALUES (%s, %s, %s, %s, %s, 'pending', %s)
+    """, (session["user_id"], plan, amount, reference, method, _iso()))
+    conn.commit()
+    conn.close()
+
+    log_login_event(session["user_id"], f"Manual payment submitted: {plan} ({reference})")
+    return jsonify({"success": True, "reference": reference})
 
 @app.route("/docs")
 def docs_page():

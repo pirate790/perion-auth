@@ -33,6 +33,7 @@ if DATABASE_URL:
         conn = get_db()
         c = conn.cursor()
 
+        # ---------- users ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -51,7 +52,9 @@ if DATABASE_URL:
         _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
         _add_column_safe(c, "users", "reset_token", "TEXT")
         _add_column_safe(c, "users", "reset_token_expiry", "TIMESTAMP")
+        _add_column_safe(c, "users", "plan", "TEXT DEFAULT 'free'")
 
+        # ---------- backup codes ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS backup_codes (
                 id SERIAL PRIMARY KEY,
@@ -61,6 +64,8 @@ if DATABASE_URL:
                 used_at TIMESTAMP
             )
         """)
+
+        # ---------- rate limits ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS rate_limits (
                 user_id INTEGER PRIMARY KEY,
@@ -68,6 +73,8 @@ if DATABASE_URL:
                 last_attempt TIMESTAMP
             )
         """)
+
+        # ---------- used codes (replay protection) ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS used_codes (
                 id SERIAL PRIMARY KEY,
@@ -76,6 +83,8 @@ if DATABASE_URL:
                 used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # ---------- sessions ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
@@ -87,6 +96,7 @@ if DATABASE_URL:
         _add_column_safe(c, "sessions", "last_active", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         _add_column_safe(c, "sessions", "device", "TEXT")
 
+        # ---------- login history ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS login_history (
                 id SERIAL PRIMARY KEY,
@@ -98,6 +108,7 @@ if DATABASE_URL:
             )
         """)
 
+        # ---------- API keys ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS api_keys (
                 id SERIAL PRIMARY KEY,
@@ -112,9 +123,23 @@ if DATABASE_URL:
         """)
         _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
 
-        # ============================================================
-        # OAuth 2.0 Tables
-        # ============================================================
+        # ---------- manual payments (OPay / bank transfer) ----------
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS manual_payments (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                plan TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                reference TEXT NOT NULL,
+                method TEXT DEFAULT 'manual',
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                verified_at TIMESTAMP,
+                verified_by INTEGER
+            )
+        """)
+
+        # ---------- OAuth 2.0: registered apps ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS oauth_clients (
                 id SERIAL PRIMARY KEY,
@@ -135,6 +160,7 @@ if DATABASE_URL:
         _add_column_safe(c, "oauth_clients", "logo_url", "TEXT")
         _add_column_safe(c, "oauth_clients", "website_url", "TEXT")
 
+        # ---------- OAuth 2.0: issued authorizations ----------
         c.execute("""
             CREATE TABLE IF NOT EXISTS oauth_authorizations (
                 id SERIAL PRIMARY KEY,
@@ -184,6 +210,7 @@ else:
         conn = get_db()
         c = conn.cursor()
 
+        # ---------- users ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +229,9 @@ else:
         _add_column_safe(c, "users", "is_admin", "INTEGER DEFAULT 0")
         _add_column_safe(c, "users", "reset_token", "TEXT")
         _add_column_safe(c, "users", "reset_token_expiry", "TIMESTAMP")
+        _add_column_safe(c, "users", "plan", "TEXT DEFAULT 'free'")
 
+        # ---------- backup codes ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS backup_codes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,6 +241,8 @@ else:
                 used_at TIMESTAMP
             )
         """)
+
+        # ---------- rate limits ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS rate_limits (
                 user_id INTEGER PRIMARY KEY,
@@ -219,6 +250,8 @@ else:
                 last_attempt TIMESTAMP
             )
         """)
+
+        # ---------- used codes ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS used_codes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -227,6 +260,8 @@ else:
                 used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # ---------- sessions ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS sessions (
                 token TEXT PRIMARY KEY,
@@ -238,6 +273,7 @@ else:
         _add_column_safe(c, "sessions", "last_active", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         _add_column_safe(c, "sessions", "device", "TEXT")
 
+        # ---------- login history ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS login_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,6 +285,7 @@ else:
             )
         """)
 
+        # ---------- API keys ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS api_keys (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,7 +300,23 @@ else:
         """)
         _add_column_safe(c, "api_keys", "owner_user_id", "INTEGER")
 
-        # OAuth tables
+        # ---------- manual payments ----------
+        execute_query(c, """
+            CREATE TABLE IF NOT EXISTS manual_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                plan TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                reference TEXT NOT NULL,
+                method TEXT DEFAULT 'manual',
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                verified_at TIMESTAMP,
+                verified_by INTEGER
+            )
+        """)
+
+        # ---------- OAuth 2.0: registered apps ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS oauth_clients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,6 +337,7 @@ else:
         _add_column_safe(c, "oauth_clients", "logo_url", "TEXT")
         _add_column_safe(c, "oauth_clients", "website_url", "TEXT")
 
+        # ---------- OAuth 2.0: issued authorizations ----------
         execute_query(c, """
             CREATE TABLE IF NOT EXISTS oauth_authorizations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
