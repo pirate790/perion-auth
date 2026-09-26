@@ -366,7 +366,8 @@ def generate_qr_data_uri(secret, email, issuer="Perion Auth"):
 # ============================================================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    """Public landing page."""
+    return render_template("landing.html")
 
 
 @app.route("/sw.js")
@@ -458,7 +459,8 @@ def settings_page(session):
 
 @app.route("/reset-password")
 def reset_password_page():
-    return render_template("index.html")
+    """Serve the auth page; JS reads ?token= from the URL and shows the reset view."""
+    return render_template("login.html")
 
 
 # ============================================================
@@ -467,7 +469,7 @@ def reset_password_page():
 @app.route("/enroll", methods=["GET", "POST"])
 def enroll():
     if request.method == "GET":
-        return redirect(url_for("index"))
+        return redirect(url_for("login") + "?view=signup")
 
     data = request.get_json() if request.is_json else request.form
     email = data.get("email", "").strip().lower()
@@ -523,7 +525,7 @@ def enroll():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return redirect(url_for("index"))
+        return render_template("login.html")
 
     data = request.get_json() if request.is_json else request.form
     email = data.get("email", "").strip().lower()
@@ -1243,12 +1245,7 @@ def api_chat():
             api_key=OPENROUTER_API_KEY,
         )
         completion = client.chat.completions.create(
-            models=[
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen3-235b-a22b:free",
-    "openrouter/free",
-],
+            model="meta-llama/llama-3.3-70b-instruct:free",
             messages=messages,
             extra_headers={
                 "HTTP-Referer": "https://www.perionauth.ryzedns.org",
