@@ -239,8 +239,25 @@
         {% endif %}
       </div>
     </div>
+<!-- ============ DANGER ZONE (admin only) ============ -->
+{% if is_admin %}
+<div class="section-block" style="margin-top:50px;">
+  <div class="section-heading" style="color:var(--red);">⚠️ Danger Zone · Admin Only</div>
 
-    <!-- ============ API KEYS ============ -->
+  <div class="card" style="border-color:rgba(255,123,123,0.4); background:linear-gradient(180deg, rgba(255,123,123,0.05), rgba(255,255,255,0.02));">
+    <p style="font-size:13px; color:var(--text-dim); line-height:1.65; margin-bottom:16px;">
+      <strong style="color:var(--red);">Wipe all user accounts.</strong>
+      This permanently deletes every user, session, API key, OAuth app, and login history in the system.
+      This action cannot be undone. Your own admin account is kept by default.
+    </p>
+    <button class="btn danger" id="wipe-btn" style="background:rgba(255,123,123,0.2); border:1px solid rgba(255,123,123,0.5); padding:12px 22px;">
+      Delete All User Accounts
+    </button>
+  </div>
+</div>
+{% endif %}
+
+   <!-- ============ API KEYS ============ -->
     <div class="section-block">
       <div class="section-heading">
         API Keys
@@ -351,6 +368,36 @@
       </div>
     </div>
   </div>
+<!-- ============ WIPE CONFIRM MODAL ============ -->
+<div class="overlay" id="wipe-overlay">
+  <div class="modal">
+    <h3 style="color:var(--red);">⚠️ Delete All User Accounts</h3>
+    <p class="modal-sub">
+      This will permanently delete <strong>every user</strong>, session, API key, OAuth app, and login record in Perion Auth.
+      <strong style="color:var(--red);">This cannot be undone.</strong>
+    </p>
+
+    <label class="m-label">Type <code style="color:var(--red); background:rgba(255,123,123,0.15); padding:2px 6px; border-radius:4px;">DELETE ALL USERS</code> to confirm:</label>
+    <input type="text" class="m-input" id="wipe-confirm" placeholder="DELETE ALL USERS" autocomplete="off" />
+
+    <label style="display:flex; align-items:center; gap:10px; margin-top:16px; font-size:13.5px; color:var(--text-dim); cursor:pointer;">
+      <input type="checkbox" id="wipe-keep-self" checked style="width:16px; height:16px; accent-color:var(--accent);" />
+      Also keep my own admin account (recommended)
+    </label>
+    <p style="font-size:11.5px; color:var(--text-dim); margin-top:6px; margin-left:26px;">
+      If unchecked, <strong style="color:var(--red);">your own account will be deleted too</strong> and you'll be logged out immediately.
+    </p>
+
+    <div class="m-error" id="wipe-error"></div>
+
+    <div style="display:flex; gap:10px; margin-top:22px;">
+      <button class="btn danger" style="flex:1; background:rgba(255,123,123,0.2); border:1px solid rgba(255,123,123,0.5);" id="wipe-confirm-btn">
+        Yes, Delete Everything
+      </button>
+      <button class="btn ghost" id="wipe-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
 
   <!-- ============ NEW API KEY MODAL ============ -->
   <div class="overlay" id="key-overlay">
@@ -536,6 +583,76 @@
     const res = await api(`/api/admin/keys/${b.dataset.id}`, { method: 'DELETE' });
     if (res.ok){ toast('Deleted', 'success'); setTimeout(() => location.reload(), 500); }
   }));
+
+/* ======================================================
+   WIPE ALL ACCOUNTS (Danger Zone)
+   ====================================================== */
+const wipeOverlay = document.getElementById('wipe-overlay');
+const wipeBtn = document.getElementById('wipe-btn');
+if (wipeBtn && wipeOverlay) {
+  wipeBtn.addEventListener('click', () => {
+    document.getElementById('wipe-confirm').value = '';
+    document.getElementById('wipe-error').classList.remove('show');
+    document.getElementById('wipe-keep-self').checked = true;
+    wipeOverlay.classList.add('show');
+  });
+
+  document.getElementById('wipe-cancel').addEventListener('click', () => {
+    wipeOverlay.classList.remove('show');
+  });
+  wipeOverlay.addEventListener('click', (e) => {
+    if (e.target === wipeOverlay) wipeOverlay.classList.remove('show');
+  });
+
+  document.getElementById('wipe-confirm-btn').addEventListener('click', async () => {
+    const confirmText = document.getElementById('wipe-confirm').value.trim();
+    const keepSelf = document.getElementById('wipe-keep-self').checked;
+    const err = document.getElementById('wipe-error');
+
+    if (confirmText !== 'DELETE ALL USERS') {
+      err.textContent = 'You must type "DELETE ALL USERS" exactly (all caps).';
+      err.classList.add('show');
+      return;
+    }
+
+    const btn = document.getElementById('wipe-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Wiping...';
+
+    try {
+      const res = await api('/api/admin/wipe-all-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: confirmText, keep_self: keepSelf })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        err.textContent = data.error || 'Failed to wipe';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Yes, Delete Everything';
+        return;
+      }
+
+      wipeOverlay.classList.remove('show');
+
+      if (keepSelf) {
+        toast('All accounts deleted. You are still signed in.', 'success');
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        toast('All accounts deleted. Signing you out...', 'success');
+        setTimeout(() => window.location.href = '/', 1200);
+      }
+    } catch (e) {
+      err.textContent = 'Network error. Check the Render logs.';
+      err.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Yes, Delete Everything';
+    }
+  });
+}
+
 })();
 </script>
 

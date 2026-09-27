@@ -1670,6 +1670,54 @@ def billing_page(session):
         token=session["token"],
     )
 # ============================================================
+# ADMIN — WIPE ALL ACCOUNTS
+# ============================================================
+@app.route("/api/admin/wipe-all-accounts", methods=["POST"])
+@admin_required_api
+def api_wipe_all_accounts(session):
+    """Delete all user accounts and their data. Admin-only.
+    By default keeps the current admin's own account so they stay logged in."""
+    data = request.get_json() or {}
+    confirm = (data.get("confirm") or "").strip()
+    keep_self = bool(data.get("keep_self", True))
+
+    if confirm != "DELETE ALL USERS":
+        return jsonify({"error": "Confirmation text does not match"}), 400
+
+    current_user_id = session["user_id"]
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Wipe dependent tables first (no FK constraints in most, but order matters)
+    execute_query(c, "DELETE FROM oauth_authorizations")
+    execute_query(c, "DELETE FROM oauth_clients")
+    execute_query(c, "DELETE FROM manual_payments")
+    execute_query(c, "DELETE FROM api_keys")
+    execute_query(c, "DELETE FROM used_codes")
+    execute_query(c, "DELETE FROM rate_limits")
+    execute_query(c, "DELETE FROM backup_codes")
+
+    if keep_self:
+        execute_query(c, "DELETE FROM login_history WHERE user_id != %s", (current_user_id,))
+        execute_query(c, "DELETE FROM sessions WHERE user_id != %s", (current_user_id,))
+        execute_query(c, "DELETE FROM users WHERE id != %s", (current_user_id,))
+    else:
+        execute_query(c, "DELETE FROM login_history")
+        execute_query(c, "DELETE FROM sessions")
+        execute_query(c, "DELETE FROM users")
+
+    conn.commit()
+    conn.close()
+
+    log_login_event(current_user_id, f"WIPED ALL ACCOUNTS (kept_self={keep_self})")
+
+    return jsonify({
+        "success": True,
+        "kept_self": keep_self,
+        "message": "All accounts wiped" + (" except yours" if keep_self else "")
+    })
+# ============================================================
 # MANUAL PAYMENTS (OPay / bank transfer)
 # ============================================================
 @app.route("/api/billing/submit-manual-payment", methods=["POST"])
