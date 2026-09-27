@@ -903,6 +903,68 @@ def generate_api_key():
     body = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
     return prefix + body
 
+@app.route("/api/admin/keys", methods=["POST"])
+@login_required_api
+def api_admin_create_key(session):
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "SELECT email FROM users WHERE id = %s", (session["user_id"],))
+    row = c.fetchone()
+    owner_email = row["email"] if row else None
+
+    new_key = generate_api_key()
+    execute_query(c, """
+        INSERT INTO api_keys (key, name, owner_email, owner_user_id)
+        VALUES (%s, %s, %s, %s)
+    """, (new_key, name, owner_email, session["user_id"]))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "key": new_key, "name": name})
+
+
+@app.route("/api/admin/keys/<int:key_id>/revoke", methods=["POST"])
+@login_required_api
+def api_admin_revoke_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "UPDATE api_keys SET is_active = 0 WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/admin/keys/<int:key_id>/activate", methods=["POST"])
+@login_required_api
+def api_admin_activate_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "UPDATE api_keys SET is_active = 1 WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/admin/keys/<int:key_id>", methods=["DELETE"])
+@login_required_api
+def api_admin_delete_key(session, key_id):
+    if not _user_owns_key(session["user_id"], key_id):
+        return jsonify({"error": "Not your key"}), 403
+    conn = get_db()
+    c = conn.cursor()
+    execute_query(c, "DELETE FROM api_keys WHERE id = %s", (key_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
 
 @app.route("/developers")
 @login_required_html
